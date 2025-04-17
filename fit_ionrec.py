@@ -5,11 +5,6 @@ import matplotlib.pyplot as plt
 KBOLTZ = 8.617385e-8
 ME_KEV = 510.99895
 
-def getCrossSectionsModel(Elist, CSdata, params):
-  #basic model with CI and one EA stage (H-like) 
-  csmodel = lmfit.Model(younger) + lmfit.Model(mewe)
-  return csmodel
-
 def younger(electronEnergy, eion, A,B,C,D,E):
   #collisional ionization formula
   u = electronEnergy/eion

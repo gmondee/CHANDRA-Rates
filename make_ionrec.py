@@ -190,9 +190,9 @@ def calc_ci_crosssec_urdam(elecE, param):
 
   Aterm = A*(1-(1/u))
   Bterm = B*(1-(1/u))**2
-  Cterm = C* R * numpy.log(u)
-  Dterm = D* numpy.log(u)/numpy.sqrt(u)
-  Eterm = E* numpy.log(u)/u
+  Cterm = C* R * np.log(u)
+  Dterm = D* np.log(u)/np.sqrt(u)
+  Eterm = E* np.log(u)/u
 
   ci_cross = 1/(u*eion*eion)*(Aterm + Bterm + Cterm + Dterm + Eterm)
   ci_cross[u<1] = 0.0
@@ -473,17 +473,33 @@ if __name__ == '__main__':
     ws_contents=list(ws.iter_cols(values_only=True))
     for col in ws_contents:
       if "Energy" in col[0]:
-        Elist = col[1:]
+        Elist = []
+        tempE = np.array(col[1:], dtype=float)
+        for E in tempE:
+          if not np.isnan(E):
+            Elist.append(E)
       elif col[0] == "cross section":
-        csData = col[1:]
+        csData = []
+        tempcs = np.array(col[1:], dtype=float)
+        for cs in tempcs:
+          if not np.isnan(cs):
+            csData.append(cs)
       elif col[0] == "cross section uncertainty":
-        csUnc = col[1:]
+        csUnc = []
+        tempUnc = np.array(col[1:], dtype=float)
+        for unc in tempUnc:
+          if not np.isnan(unc):
+            csUnc.append(unc)
+
       elif col[0] == "cross section power (cm2)":
         csPower = col[1]
 
-    Elist=np.array(Elist)*10**-3 # in keV
-    csData=np.array(csData)*10**csPower
-    csUnc =np.array(csUnc)*10**csPower
+    Elist = np.array(Elist)
+    csData = np.array(csData)
+    csUnc=np.array(csUnc)
+    Elist=Elist[Elist!=None]*(10**-3) # in keV
+    csData=csData[csData!=None]*(10**csPower)
+    csUnc =csUnc[csUnc!=None]*(10**csPower)
   else:
     Elist = 2*np.logspace(1,3,num=20)*(10**-3) #in keV
 
@@ -505,7 +521,7 @@ if __name__ == '__main__':
   ax.semilogy(Elist, ea, label='excitation-autoionization')
   ax.semilogy(Elist, ci+ea, label='Total cross section', marker='o')
   if fname:
-    ax.errorbar(Elist, csData, csUnc, label="experiment", marker='o')
+    ax.errorbar(Elist, csData, csUnc, label="experiment", marker='o', linestyle="None")
     #plt.xscale('log')
     plt.yscale('log')
   ax.legend(loc=0)
@@ -515,20 +531,25 @@ if __name__ == '__main__':
   plt.draw()
 
   #B2+ -> B3+
-  numCIModels = len(params['ci'])
-  numEAModels = len(params['ea'])
+  numCIModels = 1#len(params['ci'])
+  numEAModels = 1#len(params['ea'])
+  ###limit number of curves based on the number of available data points?
+  maxModels = np.floor(len(Elist)/11)
+  numCIModels = min(numCIModels, np.floor(maxModels/2))
+  numEAModels = min(numEAModels, int(maxModels-numCIModels))
 
-  crossSecModel = lmfit.Model(younger, prefix='ci1_') #assume there's always a CI curve
-  crossSecParams = crossSecModel.make_params(**dict(zip(['ci1_eion','ci1_A','ci1_B','ci1_C','ci1_D','ci1_E'], params['ci'][0][1:])))
-  crossSecParams['ci1_eion'].set(vary=False) # fix ionization potential
-  crossSecParams['ci1_C'].set(vary=False) # fix ionization potential
-  crossSecParams['ci1_D'].set(vary=False) # fix ionization potential
-  CIprefixes = ['ci1_']
+  lastInd = len(params['ci'])
+  crossSecModel = lmfit.Model(younger, prefix=f'ci{lastInd}_') #assume there's always a CI curve
+  crossSecParams = crossSecModel.make_params(**dict(zip([f'ci{lastInd}_eion',f'ci{lastInd}_A',f'ci{lastInd}_B',f'ci{lastInd}_C',f'ci{lastInd}_D',f'ci{lastInd}_E'], params['ci'][-1][1:])))
+  crossSecParams[f'ci{lastInd}_eion'].set(vary=False) # fix ionization potential
+  crossSecParams[f'ci{lastInd}_C'].set(vary=False) # fix ionization potential
+  crossSecParams[f'ci{lastInd}_D'].set(vary=False) # fix ionization potential
+  CIprefixes = [f'ci{lastInd}_']
   EAprefixes = []
-  LowestEion = np.inf
+  LowestEion = params['ci'][-1][1]
 
-  for i in range(numCIModels):
-    if i>0:
+  for i in range(numCIModels-1):
+    if i<lastInd:
       prefix = f'ci{i+1}_'
       tempModel = lmfit.Model(younger, prefix=prefix)
       tempParams = tempModel.make_params(**dict(zip([f'{prefix}eion',f'{prefix}A',f'{prefix}B',f'{prefix}C',
@@ -545,6 +566,11 @@ if __name__ == '__main__':
       tempParams[f'{prefix}D'].set(vary=False) #vary=False will fix D
       tempParams[f'{prefix}eion'].set(vary=False) # fix ionization potential
                               #2nd derivative limit, compare rates
+                              #cannot find 2nd derivative limit :(
+                              #maybe limit number of curves based on ionization potential (at high E, there are fewer data points left to fit with)
+                              #or just limit it in general?
+                              #prevent negative values in the function and values above the maximum
+
       CIprefixes.append(prefix)
 
       crossSecModel += tempModel
@@ -575,9 +601,30 @@ if __name__ == '__main__':
   #   B2params[f'{prefix}eion'].set(vary=False)
 
   result = crossSecModel.fit(csData[Elist>LowestEion], params=crossSecParams, electronEnergy=Elist[Elist>LowestEion])
-  result.plot(numpoints=1000)
-  for prefix, component in result.eval_components().items():
-    plt.plot(Elist[Elist>LowestEion], component, label=prefix)
+  numPoints = 1000
+  result.plot(numpoints=numPoints)
+  xs = np.logspace(np.log10(min(Elist)), np.log10(max(Elist)), num=numPoints)
+  # for prefix, component in result.eval_components().items():
+  #   plt.plot(Elist[Elist>LowestEion], component, '--', label=prefix)
+  ### plot fitted components
+  bv = result.best_values
+  for prefix in CIprefixes:
+    cidata = younger(xs, **dict(zip(['eion','A','B','C','D','E'], 
+                                    [bv[f'{prefix}eion'],bv[f'{prefix}A'],bv[f'{prefix}B'],
+                                     bv[f'{prefix}C'],bv[f'{prefix}D'],bv[f'{prefix}E']])))
+    plt.plot(xs, cidata, '--',label=prefix, linewidth=1)
+  for prefix in EAprefixes:
+    eadata = younger(xs, **dict(zip(['eion','A','B','C','D','E'], 
+                                    [bv[f'{prefix}eion'],bv[f'{prefix}A'],bv[f'{prefix}B'],
+                                     bv[f'{prefix}C'],bv[f'{prefix}D'],bv[f'{prefix}E']])))
+    plt.plot(xs, eadata, '--', label=prefix, linewidth=1)
+  ### plot urdam components
+  for i, ciparams in enumerate(params['ci']):
+    cidata = younger(xs, **dict(zip(['eion','A','B','C','D','E'], ciparams[1:])))
+    plt.plot(xs, cidata, '-.', label=f'ciUrd{i}')
+  for i, eaparams in enumerate(params['ea']):
+    eadata = mewe(xs, **dict(zip(['eion','A','B','C','D','E'], eaparams[1:])))
+    plt.plot(xs, eadata, '-.', label=f'eaUrd{i}')
   plt.legend()
   plt.yscale('log')
   plt.xscale('log')
@@ -611,10 +658,19 @@ if __name__ == '__main__':
   CIratesUrd, EAratesUrd = get_ionrec_rate(Z, z1, elsymb, Tlist)
 
   plt.figure()
-  totalExpRates = np.sum([np.sum(CIratesExp, axis=0), np.sum(EAratesExp, axis=0)], axis=0)
+  if len(CIratesExp)>0:
+    totalExpRates = np.sum(CIratesExp, axis=0)
+    if len(EAratesExp)>0:
+      totalExpRates+=np.sum(EAratesExp, axis=0)
+  else:
+    totalExpRates = np.sum(EAratesExp, axis=0)
+
   totalUrdRates = np.sum([CIratesUrd, EAratesUrd], axis=0)
   plt.plot(Tlist, totalExpRates, label='experiment')
-  plt.plot(Tlist, totalUrdRates, label='urdam')
+  plt.plot(Tlist, totalUrdRates, '--', label='urdam')
   plt.yscale('log')
   plt.xscale('log')
+  plt.title('Ionization rates')
+  plt.xlabel('Temperature (K)')
+  plt.ylabel('Rate (1/s) check units')
   plt.legend()
