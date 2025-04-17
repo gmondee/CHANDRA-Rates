@@ -9,7 +9,7 @@ import lmfit
 from importlib import reload
 import fit_ionrec
 reload(fit_ionrec)
-from fit_ionrec import getCrossSectionsModel, younger, mewe
+from fit_ionrec import younger, mewe
 
 # functions to calculate the ionization rate coefficients due to
 # direct collisional ionization (ci) and excitation-autoionization (ea)
@@ -452,9 +452,10 @@ if __name__ == '__main__':
   plt.ion()
 
   Z = 5
-  z1 = 3 #final charge state?
+  z1 = 3 #final charge state
   elsymb = 'B'
-  
+  makePlots=True
+  monteCarloLength = 3
 
   #load experimental values for plotting
   searchstringexp = os.path.abspath('%s/%s/%s\%s%i+*xlsx'%(DATADIR,
@@ -513,22 +514,25 @@ if __name__ == '__main__':
     if int(params['ci'][i][0]) == 1:
        C = params['ci'][i][4]
        break
+    
+  if makePlots:
+    fig = plt.figure()
+    fig.show()
+    ax = fig.add_subplot(111)
+    ax.semilogy(Elist, ci, label='collisional ionization')
+    ax.semilogy(Elist, ea, label='excitation-autoionization')
+    ax.semilogy(Elist, ci+ea, label='Total cross section', marker='o')
+    if fname:
+      ax.errorbar(Elist, csData, csUnc, label="experiment", marker='o', linestyle="None")
+      #plt.xscale('log')
+      plt.yscale('log')
+    ax.legend(loc=0)
+    plt.title(f"cross section of {elsymb} {z1-1}+ to {elsymb} {z1}+")
+    plt.ylabel('Cross section (cm-2)')
+    plt.xlabel('Electron energy (keV)')
+    plt.draw()
 
-  fig = plt.figure()
-  fig.show()
-  ax = fig.add_subplot(111)
-  ax.semilogy(Elist, ci, label='collisional ionization')
-  ax.semilogy(Elist, ea, label='excitation-autoionization')
-  ax.semilogy(Elist, ci+ea, label='Total cross section', marker='o')
-  if fname:
-    ax.errorbar(Elist, csData, csUnc, label="experiment", marker='o', linestyle="None")
-    #plt.xscale('log')
-    plt.yscale('log')
-  ax.legend(loc=0)
-  plt.title(f"cross section of {elsymb} {z1-1}+ to {elsymb} {z1}+")
-  plt.ylabel('Cross section (cm-2)')
-  plt.xlabel('Electron energy (keV)')
-  plt.draw()
+
 
   #B2+ -> B3+
   numCIModels = 1#len(params['ci'])
@@ -537,8 +541,11 @@ if __name__ == '__main__':
   maxModels = np.floor(len(Elist)/11)
   numCIModels = min(numCIModels, np.floor(maxModels/2))
   numEAModels = min(numEAModels, int(maxModels-numCIModels))
-
   lastInd = len(params['ci'])
+
+  paramsDict = {} #will look like {1:{'ea1_eion':x, 'ea1_A':A, ...}, 2:{...}, N:{...}} where N is the number of monte carlo runs
+  paramsPrefixes = []
+
   crossSecModel = lmfit.Model(younger, prefix=f'ci{lastInd}_') #assume there's always a CI curve
   crossSecParams = crossSecModel.make_params(**dict(zip([f'ci{lastInd}_eion',f'ci{lastInd}_A',f'ci{lastInd}_B',f'ci{lastInd}_C',f'ci{lastInd}_D',f'ci{lastInd}_E'], params['ci'][-1][1:])))
   crossSecParams[f'ci{lastInd}_eion'].set(vary=False) # fix ionization potential
@@ -563,7 +570,7 @@ if __name__ == '__main__':
       tempParams[f'{prefix}E'].set(max=CoeffMax, min=CoeffMin)
 
       tempParams[f'{prefix}C'].set(vary=False) #vary=False will fix C to the bethe limit
-      tempParams[f'{prefix}D'].set(vary=False) #vary=False will fix D
+      tempParams[f'{prefix}D'].set(vary=True) #vary=False will fix D
       tempParams[f'{prefix}eion'].set(vary=False) # fix ionization potential
                               #2nd derivative limit, compare rates
                               #cannot find 2nd derivative limit :(
@@ -593,41 +600,39 @@ if __name__ == '__main__':
     if params['ea'][i][1] < LowestEion:
       LowestEion = params['ea'][i][1]
 
-  # for prefix in CIprefixes:
-  #   B2params[f'{prefix}E'].set(vary=False)
-  #   B2params[f'{prefix}eion'].set(vary=False)
-  # for ci_params in params['ci']:
-  #   B2params[f'{prefix}E'].set(vary=False)
-  #   B2params[f'{prefix}eion'].set(vary=False)
+  paramsPrefixes = EAprefixes+CIprefixes
 
   result = crossSecModel.fit(csData[Elist>LowestEion], params=crossSecParams, electronEnergy=Elist[Elist>LowestEion])
-  numPoints = 1000
+  numPoints = 100
   result.plot(numpoints=numPoints)
   xs = np.logspace(np.log10(min(Elist)), np.log10(max(Elist)), num=numPoints)
   # for prefix, component in result.eval_components().items():
   #   plt.plot(Elist[Elist>LowestEion], component, '--', label=prefix)
   ### plot fitted components
   bv = result.best_values
-  for prefix in CIprefixes:
-    cidata = younger(xs, **dict(zip(['eion','A','B','C','D','E'], 
-                                    [bv[f'{prefix}eion'],bv[f'{prefix}A'],bv[f'{prefix}B'],
-                                     bv[f'{prefix}C'],bv[f'{prefix}D'],bv[f'{prefix}E']])))
-    plt.plot(xs, cidata, '--',label=prefix, linewidth=1)
-  for prefix in EAprefixes:
-    eadata = younger(xs, **dict(zip(['eion','A','B','C','D','E'], 
-                                    [bv[f'{prefix}eion'],bv[f'{prefix}A'],bv[f'{prefix}B'],
-                                     bv[f'{prefix}C'],bv[f'{prefix}D'],bv[f'{prefix}E']])))
-    plt.plot(xs, eadata, '--', label=prefix, linewidth=1)
-  ### plot urdam components
-  for i, ciparams in enumerate(params['ci']):
-    cidata = younger(xs, **dict(zip(['eion','A','B','C','D','E'], ciparams[1:])))
-    plt.plot(xs, cidata, '-.', label=f'ciUrd{i}')
-  for i, eaparams in enumerate(params['ea']):
-    eadata = mewe(xs, **dict(zip(['eion','A','B','C','D','E'], eaparams[1:])))
-    plt.plot(xs, eadata, '-.', label=f'eaUrd{i}')
-  plt.legend()
-  plt.yscale('log')
-  plt.xscale('log')
+
+  if makePlots:
+    for prefix in CIprefixes:
+      cidata = younger(xs, **dict(zip(['eion','A','B','C','D','E'], 
+                                      [bv[f'{prefix}eion'],bv[f'{prefix}A'],bv[f'{prefix}B'],
+                                      bv[f'{prefix}C'],bv[f'{prefix}D'],bv[f'{prefix}E']])))
+      plt.plot(xs, cidata, '--',label=prefix, linewidth=1)
+    for prefix in EAprefixes:
+      eadata = mewe(xs, **dict(zip(['eion','A','B','C','D','E'], 
+                                      [bv[f'{prefix}eion'],bv[f'{prefix}A'],bv[f'{prefix}B'],
+                                      bv[f'{prefix}C'],bv[f'{prefix}D'],bv[f'{prefix}E']])))
+      plt.plot(xs, eadata, '--', label=prefix, linewidth=1)
+    ### plot urdam components
+    for i, ciparams in enumerate(params['ci']):
+      cidata = younger(xs, **dict(zip(['eion','A','B','C','D','E'], ciparams[1:])))
+      plt.plot(xs, cidata, '-.', label=f'ciUrd{i}')
+    for i, eaparams in enumerate(params['ea']):
+      eadata = mewe(xs, **dict(zip(['eion','A','B','C','D','E'], eaparams[1:])))
+      plt.plot(xs, eadata, '-.', label=f'eaUrd{i}')
+    
+    plt.legend()
+    plt.yscale('log')
+    plt.xscale('log')
   print(result.fit_report())
 
 
@@ -653,11 +658,11 @@ if __name__ == '__main__':
     C = vals[f'{EAprefix}C']
     D = vals[f'{EAprefix}D']
     E = vals[f'{EAprefix}E']
-    EAratesExp.append(calc_ci_urdam(Tlist,[i,eion, A,B,C,D,E]))
+    EAratesExp.append(calc_ea_urdam(Tlist,[i,eion, A,B,C,D,E]))
 
   CIratesUrd, EAratesUrd = get_ionrec_rate(Z, z1, elsymb, Tlist)
 
-  plt.figure()
+  
   if len(CIratesExp)>0:
     totalExpRates = np.sum(CIratesExp, axis=0)
     if len(EAratesExp)>0:
@@ -666,11 +671,13 @@ if __name__ == '__main__':
     totalExpRates = np.sum(EAratesExp, axis=0)
 
   totalUrdRates = np.sum([CIratesUrd, EAratesUrd], axis=0)
-  plt.plot(Tlist, totalExpRates, label='experiment')
-  plt.plot(Tlist, totalUrdRates, '--', label='urdam')
-  plt.yscale('log')
-  plt.xscale('log')
-  plt.title('Ionization rates')
-  plt.xlabel('Temperature (K)')
-  plt.ylabel('Rate (1/s) check units')
-  plt.legend()
+  if makePlots:
+    plt.figure()
+    plt.plot(Tlist, totalExpRates, label='experiment')
+    plt.plot(Tlist, totalUrdRates, '--', label='urdam')
+    plt.yscale('log')
+    plt.xscale('log')
+    plt.title('Ionization rates')
+    plt.xlabel('Temperature (K)')
+    plt.ylabel('Rate (1/s) check units')
+    plt.legend()
