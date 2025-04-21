@@ -10,6 +10,7 @@ from importlib import reload
 import fit_ionrec
 reload(fit_ionrec)
 from fit_ionrec import younger, mewe
+import ipdb
 
 # functions to calculate the ionization rate coefficients due to
 # direct collisional ionization (ci) and excitation-autoionization (ea)
@@ -513,6 +514,8 @@ def ionrecAnalysis(Z=5, finalChargeState=3, elementSymbol='B', monteCarloLength=
     ws = wb.active
     ws_contents=list(ws.iter_cols(values_only=True))
     for col in ws_contents:
+      if col[0] == None:
+        continue
       if "Energy" in col[0]:
         Elist = []
         tempE = np.array(col[1:], dtype=float)
@@ -577,8 +580,8 @@ def ionrecAnalysis(Z=5, finalChargeState=3, elementSymbol='B', monteCarloLength=
   # numEAModels = 1#len(params['ea'])
   ###limit number of curves based on the number of available data points?
   maxModels = np.floor(len(Elist)/6)
-  numCIModels = int(min(numCIModels, np.floor(maxModels/2)))
-  numEAModels = int(min(numEAModels, int(maxModels-numCIModels)))
+  numCIModels = int(min(numCIModels, np.floor(maxModels/2), len(params['ci'])))
+  numEAModels = int(min(numEAModels, int(maxModels-numCIModels), len(params['ea'])))
   lastInd = len(params['ci'])
 
   paramsDict = {} #will look like {1:{'ea1_eion':x, 'ea1_A':A, ...}, 2:{...}, N:{...}} where N is the number of monte carlo runs
@@ -602,8 +605,8 @@ def ionrecAnalysis(Z=5, finalChargeState=3, elementSymbol='B', monteCarloLength=
         tempModel = lmfit.Model(younger, prefix=prefix)
         tempParams = tempModel.make_params(**dict(zip([f'{prefix}eion',f'{prefix}A',f'{prefix}B',f'{prefix}C',
                                                       f'{prefix}D',f'{prefix}E'], params['ci'][i][1:])))
-        CoeffMax = 1.e-10 #gets close to rates with limit as 10e-24 but doesnt follow cross sections
-        CoeffMin = -1.e-10
+        CoeffMax = 1.e-8 #gets close to rates with limit as 10e-24 but doesnt follow cross sections
+        CoeffMin = -1.e-8
         tempParams[f'{prefix}A'].set(max=CoeffMax, min=CoeffMin)
         tempParams[f'{prefix}B'].set(max=CoeffMax, min=CoeffMin)
         tempParams[f'{prefix}C'].set(max=CoeffMax, min=CoeffMin)
@@ -611,7 +614,7 @@ def ionrecAnalysis(Z=5, finalChargeState=3, elementSymbol='B', monteCarloLength=
         tempParams[f'{prefix}E'].set(max=CoeffMax, min=CoeffMin)
 
         tempParams[f'{prefix}C'].set(vary=False) #vary=False will fix C to the bethe limit
-        tempParams[f'{prefix}D'].set(vary=True) #vary=False will fix D
+        tempParams[f'{prefix}D'].set(vary=False) #vary=False will fix D
         tempParams[f'{prefix}eion'].set(vary=False) # fix ionization potential
                                 #2nd derivative limit, compare rates
                                 #cannot find 2nd derivative limit :(
@@ -625,6 +628,7 @@ def ionrecAnalysis(Z=5, finalChargeState=3, elementSymbol='B', monteCarloLength=
         crossSecParams += tempParams
         if params['ci'][i][1] < LowestEion:
           LowestEion = params['ci'][i][1]
+
     for i in range(numEAModels):
       prefix = f'ea{i+1}_'
       tempModel = lmfit.Model(mewe, prefix=prefix)
@@ -642,16 +646,32 @@ def ionrecAnalysis(Z=5, finalChargeState=3, elementSymbol='B', monteCarloLength=
         LowestEion = params['ea'][i][1]
 
     paramsPrefixes = EAprefixes+CIprefixes
+    
 
-    result = crossSecModel.fit(csDataMonte[Elist>LowestEion], params=crossSecParams, electronEnergy=Elist[Elist>LowestEion])
+    def objective_custom(params, data, x):
+      residual = data-crossSecModel.eval(params, electronEnergy=x)
+      paramsValuesDict = crossSecModel.eval_components(**params, electronEnergy=x)
+      negativePenalty=np.zeros(len(data))
+      for comp in paramsValuesDict.values():
+        negativePenalty += 1000000000000*(comp<0) #very large residual for any negative values in each component
+      return residual + negativePenalty
+    
+    #result = crossSecModel.fit(csDataMonte[Elist>LowestEion], params=crossSecParams, electronEnergy=Elist[Elist>LowestEion])
+    resultMinimizer = lmfit.minimize(objective_custom, crossSecParams, args=(csDataMonte[Elist>LowestEion], Elist[Elist>LowestEion]))
     numPoints = 100
-    if makePlots: 
-      result.plot(numpoints=numPoints)
     xs = np.logspace(np.log10(min(Elist)), np.log10(max(Elist)), num=numPoints)
+    if makePlots: 
+      plt.figure()
+      #result.plot(numpoints=numPoints)
+      resultdata = crossSecModel.eval(params=resultMinimizer.params, electronEnergy=xs)
+      plt.plot(Elist, csDataMonte, linestyle="None", marker="o", label="Data")
+      plt.plot(xs, resultdata, label='Best fit')
+    
     # for prefix, component in result.eval_components().items():
     #   plt.plot(Elist[Elist>LowestEion], component, '--', label=prefix)
     ### plot fitted components
-    bv = result.best_values
+    #bv = result.best_values
+    bv = resultMinimizer.params.valuesdict()
 
     if makePlots:
       for prefix in CIprefixes:
@@ -676,8 +696,10 @@ def ionrecAnalysis(Z=5, finalChargeState=3, elementSymbol='B', monteCarloLength=
       plt.yscale('log')
       plt.xscale('log')
     #print(result.fit_report())
-    paramsDict[mcInd] = result.best_values
-
+    #paramsDict[mcInd] = result.best_values
+    paramsDict[mcInd] = bv
+  # ipdb.set_trace()
+  # ipdb.pm()
   ### compare results to accepted rates
   Tlist = numpy.logspace(lowTempPower, highTempPower, numTempSteps) # some temperatures
   CIratesExp = []
@@ -734,7 +756,7 @@ def ionrecAnalysis(Z=5, finalChargeState=3, elementSymbol='B', monteCarloLength=
     plt.fill_between(Tlist, avgExpRates-avgExpRatesUnc, avgExpRates+avgExpRatesUnc, color='r', alpha=0.15)
     plt.yscale('log')
     plt.xscale('log')
-    plt.title('Ionization rates')
+    plt.title(f'Ionization rates of {elementSymbol}{finalChargeState-1}+ to {elementSymbol}{finalChargeState}+')
     plt.xlabel('Temperature (K)')
     plt.ylabel('Rate (1/s) check units')
     #plt.legend()
@@ -743,5 +765,7 @@ def ionrecAnalysis(Z=5, finalChargeState=3, elementSymbol='B', monteCarloLength=
 if __name__ == '__main__':
   import matplotlib.pyplot as plt
   plt.ion()
-  ionrecAnalysis(Z=5, finalChargeState=3, elementSymbol='B', monteCarloLength=100, numCIModels=1, numEAModels=1, 
-                   lowTempPower=2, highTempPower=15, numTempSteps=60, makePlots=False, makePlotsRates=True)
+  # ionrecAnalysis(Z=5, finalChargeState=3, elementSymbol='B', monteCarloLength=100, numCIModels=1, numEAModels=1, 
+  #                  lowTempPower=2, highTempPower=15, numTempSteps=60, makePlots=False, makePlotsRates=True)
+  ionrecAnalysis(Z=8, finalChargeState=1, elementSymbol='O', monteCarloLength=6, numCIModels=1, numEAModels=1, 
+                   lowTempPower=2, highTempPower=15, numTempSteps=300, makePlots=True, makePlotsRates=True)
