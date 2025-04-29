@@ -28,8 +28,8 @@ import ipdb
 
 KBOLTZ = 8.617385e-8
 ME_KEV = 510.99895
-APEDDIR = './APED' # THIS IS THE DIRECTORY WHERE YOU HAVE PUT THE IR FILES
-DATADIR = '.\csdata'# THIS IS THE DIRECTORY WHERE YOU HAVE PUT THE CROSS SECTION DATA FILES
+APEDDIR = 'APED' # THIS IS THE DIRECTORY WHERE YOU HAVE PUT THE IR FILES
+DATADIR = 'csdata'# THIS IS THE DIRECTORY WHERE YOU HAVE PUT THE CROSS SECTION DATA FILES
 def calc_ci_urdam(T, param):
   """
   Calculate the collisional electron impact ionization rates using the
@@ -499,12 +499,8 @@ def ionrecAnalysis(Z=5, finalChargeState=3, elementSymbol='B', monteCarloLength=
   # monteCarloLength = 100
 
   #load experimental values for plotting
-  searchstringexp = os.path.abspath('%s/%s/%s\%s%i+*xlsx'%(DATADIR,
-                                             elsymb.upper(),
-                                             "SI",
-                                             elsymb.upper(),
-                                             z1-1))
-  
+  #searchstringexp = os.path.relpath('%s/%s/%s\%s%i+*xlsx'%(DATADIR,elsymb.upper(),"SI",elsymb.upper(),z1-1))
+  searchstringexp = os.path.join(os.path.dirname(__file__), DATADIR,elsymb.upper(),"SI",f'{elsymb.upper()}{int(z1-1)}+.xlsx')
   fname = glob.glob(searchstringexp)[0]
   print(searchstringexp, fname)
 
