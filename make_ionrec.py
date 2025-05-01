@@ -601,8 +601,8 @@ def ionrecAnalysis(Z=5, finalChargeState=3, elementSymbol='B', monteCarloLength=
         tempModel = lmfit.Model(younger, prefix=prefix)
         tempParams = tempModel.make_params(**dict(zip([f'{prefix}eion',f'{prefix}A',f'{prefix}B',f'{prefix}C',
                                                       f'{prefix}D',f'{prefix}E'], params['ci'][i][1:])))
-        CoeffMax = 1.e-8 #gets close to rates with limit as 10e-24 but doesnt follow cross sections
-        CoeffMin = -1.e-8
+        CoeffMax = 1.e-3 #gets close to rates with limit as 10e-24 but doesnt follow cross sections
+        CoeffMin = -1.e-3
         tempParams[f'{prefix}A'].set(max=CoeffMax, min=CoeffMin)
         tempParams[f'{prefix}B'].set(max=CoeffMax, min=CoeffMin)
         tempParams[f'{prefix}C'].set(max=CoeffMax, min=CoeffMin)
@@ -642,18 +642,30 @@ def ionrecAnalysis(Z=5, finalChargeState=3, elementSymbol='B', monteCarloLength=
         LowestEion = params['ea'][i][1]
 
     paramsPrefixes = EAprefixes+CIprefixes
-    
 
     def objective_custom(params, data, x):
+      moreXvalues = np.logspace(np.log10(x[0]),np.log10(x[-1]),num=100)
       residual = data-crossSecModel.eval(params, electronEnergy=x)
-      paramsValuesDict = crossSecModel.eval_components(**params, electronEnergy=x)
-      negativePenalty=np.zeros(len(data))
-      for comp in paramsValuesDict.values():
-        negativePenalty += 1000000000000*(comp<0) #very large residual for any negative values in each component
-      return residual + negativePenalty
+      paramsValuesDict = crossSecModel.eval_components(**params, electronEnergy=moreXvalues)
+      #negativePenalty=np.zeros(len(paramsValuesDict)*len(data))
+      negativePenalty = np.array([])
+      derivPenalty = np.array([])
+      for key, comp in paramsValuesDict.items():
+        if "ea" in key.lower():
+          negativePenalty = np.concatenate([negativePenalty,[abs(val *1000) if val < 0 else 0 for val in comp]],0)
+          # derivPenalty = np.concatenate([derivPenalty,[(comp[i+1] - comp[i]) ** 2
+          #                                              if i < len(comp) - 1 else 0
+          #                                              for i in range(len(comp))]],0)
+          derivPenalty = np.concatenate([derivPenalty,[abs(comp[i+1] - 2 * comp[i] + comp[i-1]) *100
+                                                if i > 0 and i < len(comp) - 1 else 0
+                                                for i in range(len(comp))]],0)
+          # if any(comp<0):
+          #   negativePenalty += 1000000000000 #very large residual for any negative values in each component
+      return np.concatenate([residual,negativePenalty, derivPenalty],0)
     
     #result = crossSecModel.fit(csDataMonte[Elist>LowestEion], params=crossSecParams, electronEnergy=Elist[Elist>LowestEion])
     resultMinimizer = lmfit.minimize(objective_custom, crossSecParams, args=(csDataMonte[Elist>LowestEion], Elist[Elist>LowestEion]))
+    # ipdb.set_trace()
     numPoints = 100
     xs = np.logspace(np.log10(min(Elist)), np.log10(max(Elist)), num=numPoints)
     if makePlots: 
@@ -741,7 +753,8 @@ def ionrecAnalysis(Z=5, finalChargeState=3, elementSymbol='B', monteCarloLength=
   totalUrdRates = np.sum([CIratesUrd, EAratesUrd], axis=0)
 
   avgExpRates = np.mean(totalExpRates, axis=0)
-  avgExpRatesUnc = np.std(totalExpRates,axis=0)
+  avgExpRatesUnc = np.std(totalExpRates,axis=0) #asymmetric error bars?
+  #rates for all ions (ABCDE rates or T list) -> ion balance + uncertainty
   if makePlotsRates:
     plt.figure()
     cmap = plt.get_cmap("hsv", monteCarloLength)
@@ -756,6 +769,8 @@ def ionrecAnalysis(Z=5, finalChargeState=3, elementSymbol='B', monteCarloLength=
     plt.xlabel('Temperature (K)')
     plt.ylabel('Rate (1/s) check units')
     #plt.legend()
+  
+  #ipdb.set_trace()
   return {"Temperature (K)":Tlist, "Average exp. rates":avgExpRates, "1 sigma uncertainty":avgExpRatesUnc}
 
 if __name__ == '__main__':
@@ -763,5 +778,5 @@ if __name__ == '__main__':
   plt.ion()
   # ionrecAnalysis(Z=5, finalChargeState=3, elementSymbol='B', monteCarloLength=100, numCIModels=1, numEAModels=1, 
   #                  lowTempPower=2, highTempPower=15, numTempSteps=60, makePlots=False, makePlotsRates=True)
-  ionrecAnalysis(Z=8, finalChargeState=1, elementSymbol='O', monteCarloLength=6, numCIModels=1, numEAModels=1, 
-                   lowTempPower=2, highTempPower=15, numTempSteps=300, makePlots=True, makePlotsRates=True)
+  ionrecAnalysis(Z=8, finalChargeState=1, elementSymbol='O', monteCarloLength=200, numCIModels=1, numEAModels=1, 
+                   lowTempPower=3, highTempPower=9, numTempSteps=300, makePlots=False, makePlotsRates=True)
