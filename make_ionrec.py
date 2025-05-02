@@ -651,14 +651,15 @@ def ionrecAnalysis(Z=5, finalChargeState=3, elementSymbol='B', monteCarloLength=
       negativePenalty = np.array([])
       derivPenalty = np.array([])
       for key, comp in paramsValuesDict.items():
-        if "ea" in key.lower():
-          negativePenalty = np.concatenate([negativePenalty,[abs(val *1000) if val < 0 else 0 for val in comp]],0)
-          # derivPenalty = np.concatenate([derivPenalty,[(comp[i+1] - comp[i]) ** 2
-          #                                              if i < len(comp) - 1 else 0
-          #                                              for i in range(len(comp))]],0)
-          derivPenalty = np.concatenate([derivPenalty,[abs(comp[i+1] - 2 * comp[i] + comp[i-1]) *100
+        negativePenalty = np.concatenate([negativePenalty,[abs(val *1000) if val < 0 else 0 for val in comp]],0)
+        # derivPenalty = np.concatenate([derivPenalty,[(comp[i+1] - comp[i]) ** 2
+        #                                              if i < len(comp) - 1 else 0
+        #                                              for i in range(len(comp))]],0)
+        if ('ea' in key) and (len(EAprefixes)>0):
+          derivPenalty = np.concatenate([derivPenalty,[abs(comp[i+1] - 2 * comp[i] + comp[i-1])*100 #does this penalize large ea curves rather than the curvature? exp changes but with a small step size...
                                                 if i > 0 and i < len(comp) - 1 else 0
                                                 for i in range(len(comp))]],0)
+          
           # if any(comp<0):
           #   negativePenalty += 1000000000000 #very large residual for any negative values in each component
       return np.concatenate([residual,negativePenalty, derivPenalty],0)
@@ -714,9 +715,8 @@ def ionrecAnalysis(Z=5, finalChargeState=3, elementSymbol='B', monteCarloLength=
   EAratesExp = []
   totalExpRates = []
   for mcInd in range(1,monteCarloLength+1):
-
+    rates = np.zeros(len(Tlist))
     for i, CIprefix in enumerate(CIprefixes):
-      rates = 0
       vals = paramsDict[mcInd]
       eion = vals[f'{CIprefix}eion']
       A = vals[f'{CIprefix}A']
@@ -724,12 +724,12 @@ def ionrecAnalysis(Z=5, finalChargeState=3, elementSymbol='B', monteCarloLength=
       C = vals[f'{CIprefix}C']
       D = vals[f'{CIprefix}D']
       E = vals[f'{CIprefix}E']
-      rates+=calc_ci_urdam(Tlist,[i,eion, A,B,C,D,E])
-      if i==len(CIprefixes)-1:
-        CIratesExp.append(rates)
+      tmpRates = calc_ci_urdam(Tlist,[i,eion, A,B,C,D,E])
+      rates+=tmpRates
+    CIratesExp.append(rates)
 
+    rates = np.zeros(len(Tlist))
     for i, EAprefix in enumerate(EAprefixes):
-      rates=0
       vals = paramsDict[mcInd]
       eion = vals[f'{EAprefix}eion']
       A = vals[f'{EAprefix}A']
@@ -737,46 +737,76 @@ def ionrecAnalysis(Z=5, finalChargeState=3, elementSymbol='B', monteCarloLength=
       C = vals[f'{EAprefix}C']
       D = vals[f'{EAprefix}D']
       E = vals[f'{EAprefix}E']
-      rates+=calc_ea_urdam(Tlist,[i,eion, A,B,C,D,E])
-      if i==len(EAprefixes)-1:
-        EAratesExp.append(rates)
-
-    if len(CIratesExp)>0:
-      expRates = CIratesExp[-1]
-      if len(EAratesExp)>0:
-        expRates+=EAratesExp[-1]
-    else:
-      expRates = EAratesExp[-1]
-    totalExpRates.append(expRates)
+      tmpRates = calc_ea_urdam(Tlist,[i,eion, A,B,C,D,E])
+      rates+=tmpRates
+    EAratesExp.append(rates)
+    totalExpRates.append(CIratesExp[-1]+EAratesExp[-1])
 
   CIratesUrd, EAratesUrd = get_ionrec_rate(Z, z1, elsymb, Tlist)
   totalUrdRates = np.sum([CIratesUrd, EAratesUrd], axis=0)
 
-  avgExpRates = np.mean(totalExpRates, axis=0)
-  avgExpRatesUnc = np.std(totalExpRates,axis=0) #asymmetric error bars?
+  #remove rate curves with negative values
+  
+
+  expRatesNonNeg = []
+  for rate in totalExpRates:
+    if sum(rate<0)==0: #if there are no negative values in this rate curve
+      expRatesNonNeg.append(rate)
+  avgExpRates = np.mean(expRatesNonNeg, axis=0)
+
+  upperExpConf = np.percentile(expRatesNonNeg, 84, axis=0)
+  lowerExpConf = np.percentile(expRatesNonNeg, 16, axis=0)
+  avgExpRatesUnc = [abs(avgExpRates-lowerExpConf), abs(avgExpRates-upperExpConf)] #[lower, upper] uncertainties
+
   #rates for all ions (ABCDE rates or T list) -> ion balance + uncertainty
   if makePlotsRates:
     plt.figure()
     cmap = plt.get_cmap("hsv", monteCarloLength)
-    for j, expRates in enumerate(totalExpRates):
+    for j, expRates in enumerate(expRatesNonNeg):
       plt.plot(Tlist, expRates,label=f'MC {j}', linewidth=0.75, alpha=0.75, color=cmap(j))
     plt.plot(Tlist, totalUrdRates, '--', label='urdam')
     plt.errorbar(Tlist, avgExpRates, avgExpRatesUnc, label='Mean', linewidth=2, color='r')
-    plt.fill_between(Tlist, avgExpRates-avgExpRatesUnc, avgExpRates+avgExpRatesUnc, color='r', alpha=0.15)
+    #plt.fill_between(Tlist, avgExpRates-avgExpRatesUnc, avgExpRates+avgExpRatesUnc, color='r', alpha=0.15)
     plt.yscale('log')
     plt.xscale('log')
-    plt.title(f'Ionization rates of {elementSymbol}{finalChargeState-1}+ to {elementSymbol}{finalChargeState}+')
+    plt.title(f'{len(expRatesNonNeg)} Ionization rates of {elementSymbol}{finalChargeState-1}+ to {elementSymbol}{finalChargeState}+ (excluded {len(totalExpRates)-len(expRatesNonNeg)})')
     plt.xlabel('Temperature (K)')
     plt.ylabel('Rate (1/s) check units')
     #plt.legend()
+    print(f'For {elementSymbol}{finalChargeState-1}+ to {elementSymbol}{finalChargeState}+:\n\tExcluded {len(totalExpRates)-len(expRatesNonNeg)} of {len(totalExpRates)} curves due to negative values.')
   
   #ipdb.set_trace()
-  return {"Temperature (K)":Tlist, "Average exp. rates":avgExpRates, "1 sigma uncertainty":avgExpRatesUnc}
+  return Tlist, avgExpRates, avgExpRatesUnc
+
+def getIonrecArgsFromFile(element: str):
+  argsDict={}
+  searchstringexp = os.path.join(os.path.dirname(__file__), 'ionrecFitSettings.xlsx')
+  fname = glob.glob(searchstringexp)[0]
+  if fname:
+    #load function args per charge state
+    wb = openpyxl.load_workbook(fname)
+    ws = wb[element]#wb.active
+    ws_contents=list(ws.iter_cols(values_only=True))
+    for arg in ws_contents:
+      argsDict[arg[0]]=[val for val in arg[1:] if val is not None]
+  else:
+    print("Failed to find settings file. Place in same directory as make_ionrec.py")
+  return argsDict
 
 if __name__ == '__main__':
   import matplotlib.pyplot as plt
   plt.ion()
   # ionrecAnalysis(Z=5, finalChargeState=3, elementSymbol='B', monteCarloLength=100, numCIModels=1, numEAModels=1, 
   #                  lowTempPower=2, highTempPower=15, numTempSteps=60, makePlots=False, makePlotsRates=True)
-  ionrecAnalysis(Z=8, finalChargeState=1, elementSymbol='O', monteCarloLength=200, numCIModels=1, numEAModels=1, 
-                   lowTempPower=3, highTempPower=9, numTempSteps=300, makePlots=False, makePlotsRates=True)
+  # ionrecAnalysis(Z=8, finalChargeState=7, elementSymbol='O', monteCarloLength=200, numCIModels=1, numEAModels=1, 
+  #                  lowTempPower=3, highTempPower=9, numTempSteps=300, makePlots=False, makePlotsRates=True)
+  if True:
+    element = 'O'
+    ratesAndUncs = {}
+    ionrecArgs = getIonrecArgsFromFile(element)
+    for i, chargeState in enumerate(ionrecArgs['finalChargeState']):
+      tmpArgsDict = {}
+      for key in ionrecArgs.keys():
+        tmpArgsDict[key] = ionrecArgs[key][i]
+      Tlist, rates, uncs = ionrecAnalysis(**tmpArgsDict)
+      ratesAndUncs[f'{element}{chargeState-1}+']={'Tlist':Tlist, 'rates':rates, 'uncsLower':uncs[0], 'uncsUpper':uncs[1]}
