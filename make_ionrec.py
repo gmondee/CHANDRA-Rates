@@ -810,3 +810,11 @@ if __name__ == '__main__':
         tmpArgsDict[key] = ionrecArgs[key][i]
       Tlist, rates, uncs = ionrecAnalysis(**tmpArgsDict)
       ratesAndUncs[f'{element}{chargeState-1}+']={'Tlist':Tlist, 'rates':rates, 'uncsLower':uncs[0], 'uncsUpper':uncs[1]}
+    picklename = f'{element}.pickle'
+    if not os.path.exists(os.path.abspath(os.path.join('pickle',picklename))):
+      import pickle
+      with open(os.path.abspath(os.path.join('pickle',picklename)), 'wb') as file:
+        pickle.dump(ratesAndUncs, file)
+        print(f"Saved pickle file to {os.path.abspath(os.path.join('pickle',picklename))}")
+    else:
+      print("Pickle file already exists. Did not overwrite.")
