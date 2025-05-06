@@ -11,6 +11,9 @@ import fit_ionrec
 reload(fit_ionrec)
 from fit_ionrec import younger, mewe
 import ipdb
+import pickle
+import matplotlib
+#matplotlib.use('TkAgg')
 
 # functions to calculate the ionization rate coefficients due to
 # direct collisional ionization (ci) and excitation-autoionization (ea)
@@ -502,7 +505,7 @@ def ionrecAnalysis(Z=5, finalChargeState=3, elementSymbol='B', monteCarloLength=
   #searchstringexp = os.path.relpath('%s/%s/%s\%s%i+*xlsx'%(DATADIR,elsymb.upper(),"SI",elsymb.upper(),z1-1))
   searchstringexp = os.path.join(os.path.dirname(__file__), DATADIR,elsymb.upper(),"SI",f'{elsymb.upper()}{int(z1-1)}+.xlsx')
   fname = glob.glob(searchstringexp)[0]
-  print(searchstringexp, fname)
+  #print(searchstringexp, fname)
 
   if fname:
     #load energies, data
@@ -746,8 +749,6 @@ def ionrecAnalysis(Z=5, finalChargeState=3, elementSymbol='B', monteCarloLength=
   totalUrdRates = np.sum([CIratesUrd, EAratesUrd], axis=0)
 
   #remove rate curves with negative values
-  
-
   expRatesNonNeg = []
   for rate in totalExpRates:
     if sum(rate<0)==0: #if there are no negative values in this rate curve
@@ -760,22 +761,29 @@ def ionrecAnalysis(Z=5, finalChargeState=3, elementSymbol='B', monteCarloLength=
 
   #rates for all ions (ABCDE rates or T list) -> ion balance + uncertainty
   if makePlotsRates:
-    plt.figure()
+    fig, (ax1, ax2) = plt.subplots(2,1)
+
     cmap = plt.get_cmap("hsv", monteCarloLength)
     for j, expRates in enumerate(expRatesNonNeg):
-      plt.plot(Tlist, expRates,label=f'MC {j}', linewidth=0.75, alpha=0.75, color=cmap(j))
-    plt.plot(Tlist, totalUrdRates, '--', label='urdam')
-    plt.errorbar(Tlist, avgExpRates, avgExpRatesUnc, label='Mean', linewidth=2, color='r')
-    #plt.fill_between(Tlist, avgExpRates-avgExpRatesUnc, avgExpRates+avgExpRatesUnc, color='r', alpha=0.15)
-    plt.yscale('log')
-    plt.xscale('log')
-    plt.title(f'{len(expRatesNonNeg)} Ionization rates of {elementSymbol}{finalChargeState-1}+ to {elementSymbol}{finalChargeState}+ (excluded {len(totalExpRates)-len(expRatesNonNeg)})')
-    plt.xlabel('Temperature (K)')
-    plt.ylabel('Rate (1/s) check units')
+      ax1.plot(Tlist, expRates,label=f'MC {j}', linewidth=0.75, alpha=0.75, color=cmap(j))
+    ax1.plot(Tlist, totalUrdRates, '--', label='urdam')
+    ax1.errorbar(Tlist, avgExpRates, avgExpRatesUnc, label='Mean', linewidth=2, color='r')
+    #ax1.fill_between(Tlist, avgExpRates-avgExpRatesUnc, avgExpRates+avgExpRatesUnc, color='r', alpha=0.15)
+    ax1.set_yscale('log')
+    ax1.set_xscale('log')
+    ax1.set_title(f'{len(expRatesNonNeg)} Ionization rates of {elementSymbol}{finalChargeState-1}+ to {elementSymbol}{finalChargeState}+ (excluded {len(totalExpRates)-len(expRatesNonNeg)})')
+    ax1.set_xlabel('Temperature (K)')
+    ax1.set_ylabel('Rate (1/s)')
+    ax1.set_ylim(1e-13,1e-7)
+
+    ax2.plot(Tlist, avgExpRates/totalUrdRates, label='Exp/Urd')
+    ax2.plot(Tlist, (avgExpRates+avgExpRatesUnc[1])/totalUrdRates, '--', color='g',label='Exp/Urd')
+    ax2.plot(Tlist, (avgExpRates-avgExpRatesUnc[0])/totalUrdRates, '--', color='g',label='Exp/Urd')
+    ax2.set_xscale('log')
+    ax2.set_title('Experiment/Urdampilleta')
     #plt.legend()
     print(f'For {elementSymbol}{finalChargeState-1}+ to {elementSymbol}{finalChargeState}+:\n\tExcluded {len(totalExpRates)-len(expRatesNonNeg)} of {len(totalExpRates)} curves due to negative values.')
-  
-  #ipdb.set_trace()
+    #plt.savefig(f'{elementSymbol}{finalChargeState-1}+ to {elementSymbol}{finalChargeState}+.pdf')
   return Tlist, avgExpRates, avgExpRatesUnc
 
 def getIonrecArgsFromFile(element: str):
@@ -796,10 +804,10 @@ def getIonrecArgsFromFile(element: str):
 if __name__ == '__main__':
   import matplotlib.pyplot as plt
   plt.ion()
-  # ionrecAnalysis(Z=5, finalChargeState=3, elementSymbol='B', monteCarloLength=100, numCIModels=1, numEAModels=1, 
-  #                  lowTempPower=2, highTempPower=15, numTempSteps=60, makePlots=False, makePlotsRates=True)
-  # ionrecAnalysis(Z=8, finalChargeState=7, elementSymbol='O', monteCarloLength=200, numCIModels=1, numEAModels=1, 
-  #                  lowTempPower=3, highTempPower=9, numTempSteps=300, makePlots=False, makePlotsRates=True)
+  # ionrecAnalysis(Z=5, finalChargeState=4, elementSymbol='B', monteCarloLength=100, numCIModels=1, numEAModels=1, 
+  #                  lowTempPower=2, highTempPower=9, numTempSteps=60, makePlots=False, makePlotsRates=True)
+  # ionrecAnalysis(Z=8, finalChargeState=8, elementSymbol='O', monteCarloLength=200, numCIModels=1, numEAModels=1, 
+  #                  lowTempPower=4, highTempPower=9, numTempSteps=300, makePlots=False, makePlotsRates=True)
   if True:
     element = 'O'
     ratesAndUncs = {}
@@ -811,10 +819,16 @@ if __name__ == '__main__':
       Tlist, rates, uncs = ionrecAnalysis(**tmpArgsDict)
       ratesAndUncs[f'{element}{chargeState-1}+']={'Tlist':Tlist, 'rates':rates, 'uncsLower':uncs[0], 'uncsUpper':uncs[1]}
     picklename = f'{element}.pickle'
-    if not os.path.exists(os.path.abspath(os.path.join('pickle',picklename))):
-      import pickle
-      with open(os.path.abspath(os.path.join('pickle',picklename)), 'wb') as file:
-        pickle.dump(ratesAndUncs, file)
-        print(f"Saved pickle file to {os.path.abspath(os.path.join('pickle',picklename))}")
-    else:
-      print("Pickle file already exists. Did not overwrite.")
+    if os.path.exists(os.path.abspath(os.path.join('pickle',picklename))):
+      fexists = input("Pickle file already exists. Overwrite? [y]/[n]:\t")
+      if fexists=='y':
+        with open(os.path.abspath(os.path.join('pickle',picklename)), 'wb') as file:
+          pickle.dump(ratesAndUncs, file)
+          print(f"Saved pickle file to {os.path.abspath(os.path.join('pickle',picklename))}")
+      else:
+        print("Pickle file already exists; did not overwrite.")
+  import matplotlib.backends.backend_pdf
+  pdf = matplotlib.backends.backend_pdf.PdfPages("OxygenOutput.pdf")
+  for fig in range(1, plt.gcf().number + 1): ## will open an empty extra figure :(
+      pdf.savefig( fig )
+  pdf.close()
