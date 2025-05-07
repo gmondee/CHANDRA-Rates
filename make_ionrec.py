@@ -806,8 +806,8 @@ if __name__ == '__main__':
   plt.ion()
   # ionrecAnalysis(Z=5, finalChargeState=4, elementSymbol='B', monteCarloLength=100, numCIModels=1, numEAModels=1, 
   #                  lowTempPower=2, highTempPower=9, numTempSteps=60, makePlots=False, makePlotsRates=True)
-  # ionrecAnalysis(Z=8, finalChargeState=8, elementSymbol='O', monteCarloLength=200, numCIModels=1, numEAModels=1, 
-  #                  lowTempPower=4, highTempPower=9, numTempSteps=300, makePlots=False, makePlotsRates=True)
+  # ionrecAnalysis(Z=8, finalChargeState=6, elementSymbol='O', monteCarloLength=6, numCIModels=1, numEAModels=0, 
+  #                  lowTempPower=4, highTempPower=9, numTempSteps=300, makePlots=True, makePlotsRates=True)
   if True:
     element = 'O'
     ratesAndUncs = {}
@@ -827,8 +827,8 @@ if __name__ == '__main__':
           print(f"Saved pickle file to {os.path.abspath(os.path.join('pickle',picklename))}")
       else:
         print("Pickle file already exists; did not overwrite.")
-  import matplotlib.backends.backend_pdf
-  pdf = matplotlib.backends.backend_pdf.PdfPages("OxygenOutput.pdf")
-  for fig in range(1, plt.gcf().number + 1): ## will open an empty extra figure :(
-      pdf.savefig( fig )
-  pdf.close()
+    import matplotlib.backends.backend_pdf
+    pdf = matplotlib.backends.backend_pdf.PdfPages("OxygenOutput.pdf")
+    for fig in range(1, plt.gcf().number + 1): ## will open an empty extra figure :(
+        pdf.savefig( fig )
+    pdf.close()
