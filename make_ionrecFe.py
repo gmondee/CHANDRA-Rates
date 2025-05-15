@@ -552,8 +552,8 @@ def ionrecAnalysis(Z=5, finalChargeState=3, elementSymbol='B', monteCarloLength=
 	params = get_params(Z, z1, elsymb)
 	for i in range(len(params['ci'])):
 		if int(params['ci'][i][0]) == 1:
-			 C = params['ci'][i][4]
-			 break
+			C = params['ci'][i][4]
+			break
 	if elementSymbol=='O' and finalChargeState==1: #remove extra CI curve in neutral oxygen from atomdb
 		params['ci']=params['ci'][:-1]
 
@@ -652,32 +652,39 @@ def ionrecAnalysis(Z=5, finalChargeState=3, elementSymbol='B', monteCarloLength=
 		if addZeroPt:
 			Elist=np.append([LowestEion],ElistOrig)
 			csDataMonte=np.append([0],csDataMonte)
-		def objective_custom(params, data, x, penalties=False):
+
+		def objective_custom(params, data, x, penalties=True):
 			moreXvalues = np.logspace(np.log10(x[0]),np.log10(1.5*x[-1]),num=200)
 			residual = data-crossSecModel.eval(params, electronEnergy=x)
 			paramsValuesDict = crossSecModel.eval_components(**params, electronEnergy=moreXvalues)
 			#negativePenalty=np.zeros(len(paramsValuesDict)*len(data))
 			negativePenalty = np.array([])
 			derivPenalty = np.array([])
-			for key, comp in paramsValuesDict.items():
-				negativePenalty = np.concatenate([negativePenalty,[abs(val *1000) if val < 0 else 0 for val in comp]],0)
-				if ('ea' in key):
-					derivPenalty = np.concatenate([derivPenalty,[abs(comp[i+1] - 2 * comp[i] + comp[i-1])*1000 #does this penalize large ea curves rather than the curvature? exp changes but with a small step size...
-																								if i > 0 and i < len(comp) - 1 and comp[i-1]!=0 else 0
-																								for i in range(len(comp))]],0)
+			if penalties:
+				for key, comp in paramsValuesDict.items():
+					negativePenalty = np.concatenate([negativePenalty,[abs(val *1000) if val < 0 else 0 for val in comp]],0)
+					if ('ea' in key):
+						derivPenalty = np.concatenate([derivPenalty,[abs(comp[i+1] - 2 * comp[i] + comp[i-1])*1000 #does this penalize large ea curves rather than the curvature? exp changes but with a small step size...
+																									if i > 0 and i < len(comp) - 1 and comp[i-1]!=0 else 0
+																									for i in range(len(comp))]],0)
 			return np.concatenate([residual,negativePenalty, derivPenalty],0)
 		
 		#result = crossSecModel.fit(csDataMonte[Elist>LowestEion], params=crossSecParams, electronEnergy=Elist[Elist>LowestEion])
-		resultMinimizer = lmfit.minimize(objective_custom, crossSecParams, args=(csDataMonte[Elist>LowestEion], Elist[Elist>LowestEion]), max_nfev=int(2*1e3))
+		resultMinimizer = lmfit.minimize(objective_custom, crossSecParams, args=(csDataMonte[Elist>=LowestEion], Elist[Elist>=LowestEion]), max_nfev=int(2*1e3))
 		# ipdb.set_trace()
 		numPoints = 100
 		xs = np.logspace(np.log10(min(Elist)), np.log10(max(Elist)), num=numPoints)
 		if makePlots: 
-			plt.figure()
+			# plt.figure()
+			#plt.subplot
+			plt.subplots(2, 1, sharex=True)
+			plt.subplot(2,1,1)
 			#result.plot(numpoints=numPoints)
 			resultdata = crossSecModel.eval(params=resultMinimizer.params, electronEnergy=xs)
+
 			plt.plot(Elist, csDataMonte, linestyle="None", marker="o", label="Data")
 			plt.plot(xs, resultdata, label='Best fit')
+			plt.plot(Elist[Elist<LowestEion], csDataMonte[Elist<LowestEion], linestyle="None", marker='x', label="Excluded")
 			plt.ylim(np.min(csData[csData>0])/10, np.max(csData)*10)
 		
 		# for prefix, component in result.eval_components().items():
@@ -687,6 +694,7 @@ def ionrecAnalysis(Z=5, finalChargeState=3, elementSymbol='B', monteCarloLength=
 		bv = resultMinimizer.params.valuesdict()
 
 		if makePlots:
+
 			for prefix in CIprefixes:
 				cidata = younger(xs, **dict(zip(['eion','A','B','C','D','E'], 
 																				[bv[f'{prefix}eion'],bv[f'{prefix}A'],bv[f'{prefix}B'],
@@ -708,6 +716,13 @@ def ionrecAnalysis(Z=5, finalChargeState=3, elementSymbol='B', monteCarloLength=
 			plt.legend()
 			plt.yscale('log')
 			plt.xscale('log')
+
+			plt.subplot(2, 1, 2)
+			residuals = crossSecModel.eval(params=resultMinimizer.params, electronEnergy=Elist[Elist>=LowestEion]) - csDataMonte[Elist>=LowestEion]
+			plt.plot(Elist[Elist>=LowestEion], residuals/csDataMonte[Elist>=LowestEion], label='(fit-data)/data')
+			plt.legend()
+			#plt.title('data - fit')
+
 		#print(result.fit_report())
 		#paramsDict[mcInd] = result.best_values
 		paramsDict[mcInd] = bv
@@ -806,8 +821,8 @@ if __name__ == '__main__':
 	import matplotlib.pyplot as plt
 	plt.ion()
 	if True:
-		ionrecAnalysis(Z=26, finalChargeState=15, elementSymbol='Fe', monteCarloLength=8, numCIModels=1, numEAModels=2, 
-										lowTempPower=4, highTempPower=9, numTempSteps=300, makePlots=True, makePlotsRates=True, FixD=False, addZeroPt=False)
+		ionrecAnalysis(Z=26, finalChargeState=8, elementSymbol='Fe', monteCarloLength=8, numCIModels=1, numEAModels=3, 
+										lowTempPower=4, highTempPower=9, numTempSteps=300, makePlots=True, makePlotsRates=True, FixD=True, addZeroPt=False)
 	if False:
 		element = 'Fe'
 		ratesAndUncs = {}
@@ -820,7 +835,7 @@ if __name__ == '__main__':
 			ratesAndUncs[f'{element}{chargeState-1}+']={'Tlist':Tlist, 'rates':rates, 'uncsLower':uncs[0], 'uncsUpper':uncs[1]}
 		import matplotlib.backends.backend_pdf
 		pdf = matplotlib.backends.backend_pdf.PdfPages("OxygenOutput.pdf")
-		for fig in range(1, plt.gcf().number + 1): ## will open an empty extra figure :(
+		for fig in range(1, plt.gcf().number + 1):
 				pdf.savefig( fig )
 		pdf.close()
 		picklename = f'{element}.pickle'
