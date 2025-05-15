@@ -7,7 +7,7 @@ import os
 plt.ion()
 # example to get recombination rates and ionizatino balance
 
-Z = 8
+Z = 26
 element = pyatomdb.atomic.Ztoelsymb(Z)
 picklename = f'{element}.pickle'
 with open(os.path.abspath(os.path.join('pickle',picklename)), 'rb') as file:
