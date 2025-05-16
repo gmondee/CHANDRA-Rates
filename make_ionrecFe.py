@@ -13,7 +13,7 @@ from fit_ionrec import younger, mewe
 import ipdb
 import pickle
 import matplotlib
-#matplotlib.use('TkAgg')
+# matplotlib.use('QtAgg')
 
 # functions to calculate the ionization rate coefficients due to
 # direct collisional ionization (ci) and excitation-autoionization (ea)
@@ -821,8 +821,8 @@ if __name__ == '__main__':
 	import matplotlib.pyplot as plt
 	plt.ion()
 	if True:
-		ionrecAnalysis(Z=26, finalChargeState=8, elementSymbol='Fe', monteCarloLength=8, numCIModels=1, numEAModels=3, 
-										lowTempPower=4, highTempPower=9, numTempSteps=300, makePlots=True, makePlotsRates=True, FixD=True, addZeroPt=False)
+		ionrecAnalysis(Z=26, finalChargeState=1, elementSymbol='Fe', monteCarloLength=200, numCIModels=2, numEAModels=0, 
+										lowTempPower=4, highTempPower=9, numTempSteps=300, makePlots=False, makePlotsRates=True, FixD=False, addZeroPt=False)
 	if False:
 		element = 'Fe'
 		ratesAndUncs = {}
