@@ -2,6 +2,7 @@ import pyatomdb
 import numpy
 import matplotlib.pyplot as plt
 
+plt.ion()
 # The results of this look very flat, as the main thing that changes with temperature is meant to be the ionization
 # balance, and I have essentially frozen that. 
 
@@ -58,5 +59,3 @@ ax1.set_ylabel('Emissivity (ph cm^3 s^-1)')
 ax2.set_ylabel('He/H-like')
  
 ax2.set_xlabel('Temperature (K)')
-plt.draw()
-zzz=input()
