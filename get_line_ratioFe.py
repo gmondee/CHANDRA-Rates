@@ -40,14 +40,14 @@ for i, T in enumerate(Telist):
     init_pop[Z][c]=ionbal[c][i]
 
   # freeze_ion_pop makes it calculate the emissivity based on the population you provide, as opposed to anything else.
-  z1 = 7 # ion
+  z1 = Z-1 # ion
   up = 7 # upper level of resonance line
   lo = 1 # lower level of resonance line
   e = n.return_line_emissivity(T, taulist, Z, z1, up, lo, init_pop=init_pop, freeze_ion_pop=True, teunit='K') 
 
 
   # now change the ion charge to 8 and get the H-like emissivity. Need to sum 2 lines.
-  z1 = 8 # ion
+  z1 = Z # ion
   up = 3 # upper level of resonance line
   f = n.return_line_emissivity(T, taulist, Z, z1, up, lo, init_pop=init_pop, freeze_ion_pop=True, teunit='K') 
 

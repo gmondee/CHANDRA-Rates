@@ -69,17 +69,7 @@ def monteIonbal(ionrates, uncertainties, Recrates):
     tmpionbal = monteIonbal(ionrates, uncertainties, Recrates)
   return tmpionbal
 
-
-
 for i in range(monteCarloLength):
-  # tmpionbal = np.zeros((len(Telist), Z+1), dtype=float)
-  # # Shuffle data points by drawing from their uncertainties
-  # tmpionrates = np.copy(ionratesExp)
-  # monteionrates = np.random.normal(loc=tmpionrates, scale=uncScale) #assume errors are pretty symmetrical
-
-  # for iT in range(len(Telist)):
-  #   tmpionbal[iT,:] = pyatomdb.apec.solve_ionbal( monteionrates[iT,:], recrates[iT,:])
-  # ionbalExps[i]=tmpionbal
   ionbalExps[i]=monteIonbal(ionratesExp, uncScale, recrates)
 
 ionbalExp = np.median(ionbalExps, axis=0)
@@ -145,7 +135,7 @@ ionbalResults['TlistK'] = Telist
 for z1 in range(1, Z+2):
   #ionsymb = pyatomdb.atomic.Ztoelsymb(Z)+'$^{%i+}$'%(z1-1)
   charge=int(z1-1)
-  ionbalResults[charge] = ionbalExp[:,charge]
+  ionbalResults[charge] = {'ionbal':ionbalExp[:,charge],'upper':ionbalUpper[:,z1-1],'lower':ionbalLower[:,z1-1]}
 
 bal_picklename = f'{element}_bal.pickle'
 if os.path.exists(os.path.abspath(os.path.join('pickle',bal_picklename))):

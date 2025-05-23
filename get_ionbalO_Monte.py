@@ -41,21 +41,32 @@ for z1 in range(1,Z+1):
   ionratesUrdam[:,z1-1]=itmp
   recrates[:,z1-1]=rtmp
 
+"""
+Monte Carlo: randomly sample at each temperature to make a new rate
+  Use this rate to make a new ion balance
+  Store each ion balance, and use the mean and stdev as the result and error bar
+"""
+monteCarloLength = 1000
+ionbalExps = np.zeros((monteCarloLength, len(Telist), Z+1)) #each element in ionbalExps is a 27x300 array of each ion (27) at each temperature step (300)
+uncScale = np.mean([np.abs(ionratesExp-ionratesUncLower), np.abs(ionratesUncUpper-ionratesUncUpper)], axis=0)
 
-# at this point you would presumably swap in your own ionization rates for ionratesUrdamUrdam
-ionbalExp = np.zeros((len(Telist), Z+1), dtype=float)
-for iT in range(len(Telist)):
-  ionbalExp[iT,:] = pyatomdb.apec.solve_ionbal( ionratesExp[iT,:], recrates[iT,:])
+def monteIonbal(ionrates, uncertainties, Recrates):
+  tmpionbal = np.zeros((len(Telist), Z+1), dtype=float)
+  # Shuffle data points by drawing from their uncertainties
+  tmpionrates = np.copy(ionrates)
+  monteionrates = np.random.normal(loc=tmpionrates, scale=uncScale) #assume errors are symmetrical
+  for iT in range(len(Telist)):
+    tmpionbal[iT,:] = pyatomdb.apec.solve_ionbal( monteionrates[iT,:], Recrates[iT,:])
+  if np.sum(tmpionbal>1): #try again if there is >1 ion population somewhere
+    tmpionbal = monteIonbal(ionrates, uncertainties, Recrates)
+  return tmpionbal
 
-# try at the uncertainty extremes
-ionbalLower = np.zeros((len(Telist), Z+1), dtype=float)
-for iT in range(len(Telist)):
-  ionbalLower[iT,:] = pyatomdb.apec.solve_ionbal( ionratesExp[iT,:]-ionratesUncLower[iT,:], recrates[iT,:])
+for i in range(monteCarloLength):
+  ionbalExps[i]=monteIonbal(ionratesExp, uncScale, recrates)
 
-
-ionbalUpper = np.zeros((len(Telist), Z+1), dtype=float)
-for iT in range(len(Telist)):
-  ionbalUpper[iT,:] = pyatomdb.apec.solve_ionbal( ionratesExp[iT,:]+ionratesUncUpper[iT,:], recrates[iT,:])
+ionbalExp = np.median(ionbalExps, axis=0)
+ionbalUpper = np.percentile(ionbalExps, 84, axis=0)
+ionbalLower = np.percentile(ionbalExps, 16, axis=0)
 
 
 ionbalUrdam = np.zeros((len(Telist), Z+1), dtype=float)
@@ -100,7 +111,7 @@ ionbalResults['TlistK'] = Telist
 for z1 in range(1, Z+2):
   #ionsymb = pyatomdb.atomic.Ztoelsymb(Z)+'$^{%i+}$'%(z1-1)
   charge=int(z1-1)
-  ionbalResults[charge] = ionbalExp[:,charge]
+  ionbalResults[charge] = {'ionbal':ionbalExp[:,charge],'upper':ionbalUpper[:,z1-1],'lower':ionbalLower[:,z1-1]}
 
 bal_picklename = f'{element}_bal.pickle'
 if os.path.exists(os.path.abspath(os.path.join('pickle',bal_picklename))):
