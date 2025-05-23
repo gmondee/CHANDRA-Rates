@@ -93,3 +93,25 @@ ax.set_ylim(1e-3,1.3)
 ax.legend(loc=0, ncol=2)
 ax.set_xlabel('Temperature (K)')
 ax.set_ylabel('Ion Fraction')
+
+### save results as pickle file
+ionbalResults = {}
+ionbalResults['TlistK'] = Telist
+for z1 in range(1, Z+2):
+  #ionsymb = pyatomdb.atomic.Ztoelsymb(Z)+'$^{%i+}$'%(z1-1)
+  charge=int(z1-1)
+  ionbalResults[charge] = ionbalExp[:,charge]
+
+bal_picklename = f'{element}_bal.pickle'
+if os.path.exists(os.path.abspath(os.path.join('pickle',bal_picklename))):
+  fexists = input("Pickle file already exists. Overwrite? [y]/[n]:\t")
+  if fexists=='y':
+    with open(os.path.abspath(os.path.join('pickle',bal_picklename)), 'wb') as file:
+      pickle.dump(ionbalResults, file)
+      print(f"Saved pickle file to {os.path.abspath(os.path.join('pickle',bal_picklename))}")
+  else:
+    print("Pickle file already exists; did not overwrite.")
+else:
+  with open(os.path.abspath(os.path.join('pickle',bal_picklename)), 'wb') as file:
+    pickle.dump(ionbalResults, file)
+    print(f"Saved pickle file to {os.path.abspath(os.path.join('pickle',bal_picklename))}")

@@ -819,7 +819,7 @@ if __name__ == '__main__':
       ratesAndUncs[f'{element}{chargeState-1}+']={'Tlist':Tlist, 'rates':rates, 'uncsLower':uncs[0], 'uncsUpper':uncs[1]}
     import matplotlib.backends.backend_pdf
     pdf = matplotlib.backends.backend_pdf.PdfPages("OxygenOutput.pdf")
-    for fig in range(1, plt.gcf().number + 1): ## will open an empty extra figure :(
+    for fig in range(1, plt.gcf().number + 1):
         pdf.savefig( fig )
     pdf.close()
     picklename = f'{element}.pickle'

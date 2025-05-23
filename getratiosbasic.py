@@ -1,7 +1,6 @@
 import pyatomdb
 import numpy
 import matplotlib.pyplot as plt
-
 plt.ion()
 # The results of this look very flat, as the main thing that changes with temperature is meant to be the ionization
 # balance, and I have essentially frozen that. 
@@ -16,7 +15,7 @@ lo = 1 # lower level of resonance line
 
 n  = pyatomdb.spectrum.NEISession(elements=[8])
 
-taulist = 1e12 #(irrelevant)
+taulist = 1e14 #(irrelevant)
 
 # define initial population here
 init_pop = {}
@@ -30,7 +29,7 @@ init_pop[Z][Z-1]=0.3 # H-like
 
 # freeze_ion_pop makes it calculate the emissivity based on the population you provide, as opposed to anything else.
 
-e = n.return_line_emissivity(Telist, taulist, Z, z1, up, lo, init_pop=init_pop, freeze_ion_pop=True, teunit='K') 
+e = n.return_line_emissivity(Telist, taulist, Z, z1, up, lo, init_pop=init_pop, freeze_ion_pop=False, teunit='K') 
 
 
 # now change the ion charge to 8 and get the H-like emissivity. Need to sum 2 lines.
