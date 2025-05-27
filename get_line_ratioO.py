@@ -9,7 +9,7 @@ plt.ion()
 # balance, and I have essentially frozen that. 
 
 ### Load in ion balance pickle file
-Z = 8
+Z = 26
 element = pyatomdb.atomic.Ztoelsymb(Z)
 picklename = f'{element}_bal.pickle'
 with open(os.path.abspath(os.path.join('pickle',picklename)), 'rb') as file:
@@ -22,7 +22,7 @@ Telist = ionbal['TlistK'] #numpy.logspace(4,9,21) # big list o' temperatures
 
 
 
-n  = pyatomdb.spectrum.NEISession(elements=[8])
+n  = pyatomdb.spectrum.NEISession(elements=[Z])
 
 taulist = 1e14 #(irrelevant)
 emisE=np.zeros(len(Telist))
@@ -37,7 +37,7 @@ emisG=np.zeros(len(Telist))
 emisGup=np.zeros(len(Telist))
 emisGlo=np.zeros(len(Telist))
 emisGUrd=np.zeros(len(Telist))
-charges = list(range(9))
+charges = list(range(Z+1))
 
 for i, T in enumerate(Telist):
   # define initial population here
@@ -55,7 +55,7 @@ for i, T in enumerate(Telist):
     init_pop_lower[Z][c]=ionbal[c]['lower'][i]
 
   # freeze_ion_pop makes it calculate the emissivity based on the population you provide, as opposed to anything else.
-  z1 = 7 # ion
+  z1 = Z-1 # ion
   up = 7 # upper level of resonance line
   lo = 1 # lower level of resonance line
   e = n.return_line_emissivity(T, taulist, Z, z1, up, lo, init_pop=init_pop, freeze_ion_pop=True, teunit='K') 
@@ -65,7 +65,7 @@ for i, T in enumerate(Telist):
 
 
   # now change the ion charge to 8 and get the H-like emissivity. Need to sum 2 lines.
-  z1 = 8 # ion
+  z1 = Z # ion
   up = 3 # upper level of resonance line
   f = n.return_line_emissivity(T, taulist, Z, z1, up, lo, init_pop=init_pop, freeze_ion_pop=True, teunit='K') 
   fup = n.return_line_emissivity(T, taulist, Z, z1, up, lo, init_pop=init_pop_upper, freeze_ion_pop=True, teunit='K') 

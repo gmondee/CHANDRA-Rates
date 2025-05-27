@@ -22,7 +22,7 @@ Telist = ionbal['TlistK'] #numpy.logspace(4,9,21) # big list o' temperatures
 
 
 
-n  = pyatomdb.spectrum.NEISession(elements=[8])
+n  = pyatomdb.spectrum.NEISession(elements=[Z])
 
 taulist = 1e14 #(irrelevant)
 emisE=np.zeros(len(Telist))
@@ -34,7 +34,7 @@ emisFlo=np.zeros(len(Telist))
 emisG=np.zeros(len(Telist))
 emisGup=np.zeros(len(Telist))
 emisGlo=np.zeros(len(Telist))
-charges = list(range(9))
+charges = list(range(Z+1))
 
 for i, T in enumerate(Telist):
   # define initial population here
@@ -82,7 +82,7 @@ for i, T in enumerate(Telist):
   emisGlo[i]=glo['epsilon']
 
 # let's plot some graphs
-cmap = plt.get_cmap("hsv", 3)
+cmap = plt.get_cmap("hsv", 12)
 fig = plt.figure()
 fig.show()
 ax1 = fig.add_subplot(211)
@@ -93,13 +93,13 @@ ax1.fill_between(Telist, emisElo, emisEup, color=cmap(0), alpha=0.15)
 ax1.loglog(Telist, emisF+emisG, label='H-like', color=cmap(1))
 ax1.fill_between(Telist, emisFlo+emisGlo, emisFup+emisGup, color=cmap(1), alpha=0.15)
 
-ax2.loglog(Telist, emisE/(emisF+emisG), cmap(0))
+ax2.loglog(Telist, emisE/(emisF+emisG), color=cmap(0))
 ax2.fill_between(Telist, emisElo/(emisFup+emisGup), emisEup/(emisFlo+emisGlo), color=cmap(0), alpha=0.15) #error bars are using low-H/high-He or vice versa
 
 ax1.legend(loc=0)
-ax1.set_xlim(2e6,4e8)
-ax1.set_ylim(1e-22, 1e-14)
-ax2.set_ylim(1e-4,1.1)
+ax1.set_xlim(3.5e7,4.8e8)
+ax1.set_ylim(2.7e-19, 6.1e-17)
+ax2.set_ylim(.04,40)
 ax1.set_ylabel('Emissivity (ph cm^3 s^-1)')
 ax2.set_ylabel('He/H-like')
  
