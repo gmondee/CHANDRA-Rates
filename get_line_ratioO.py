@@ -5,11 +5,10 @@ import pickle
 import os
 
 plt.ion()
-# The results of this look very flat, as the main thing that changes with temperature is meant to be the ionization
-# balance, and I have essentially frozen that. 
+plt.rcParams.update({'font.size': 16})
 
 ### Load in ion balance pickle file
-Z = 26
+Z = 8
 element = pyatomdb.atomic.Ztoelsymb(Z)
 picklename = f'{element}_bal.pickle'
 with open(os.path.abspath(os.path.join('pickle',picklename)), 'rb') as file:
@@ -93,37 +92,76 @@ for i, T in enumerate(Telist):
   emisGlo[i]=glo['epsilon']
   emisGUrd[i]=gUrd['epsilon']
 
-# let's plot some graphs
+
 cmap = plt.get_cmap("hsv", 12)
 fig = plt.figure()
 fig.show()
-ax1 = fig.add_subplot(311)
-ax2 = fig.add_subplot(312, sharex=ax1)
-ax3 = fig.add_subplot(313, sharex=ax1)
+ax1 = fig.add_subplot(211)
+ax2 = fig.add_subplot(212, sharex=ax1)
 
-ax1.loglog(Telist, emisEUrd, label='He-like AtomDB', linestyle='--', color=cmap(1))
-ax1.loglog(Telist, emisE, label='He-like', color=cmap(0))
-ax1.fill_between(Telist, emisElo, emisEup, color=cmap(0), alpha=0.15)
-
+ax1.loglog(Telist, emisEUrd, label='He-like AtomDB', linestyle='--', color=cmap(0))
+ax1.loglog(Telist, emisE, label='He-like Experiment', color=cmap(1))
 ax1.loglog(Telist, emisFUrd+emisGUrd, label='H-like AtomDB', linestyle='--', color=cmap(7))
-ax1.loglog(Telist, emisF+emisG, label='H-like', color=cmap(6))
+ax1.loglog(Telist, emisF+emisG, label='H-like Experiment', color=cmap(6))
 ax1.fill_between(Telist, emisFlo+emisGlo, emisFup+emisGup, color=cmap(6), alpha=0.15)
-ax1.legend(loc=0)
+ax1.fill_between(Telist, emisElo, emisEup, color=cmap(1), alpha=0.15)
 
-ax2.loglog(Telist, emisE/(emisF+emisG), color=cmap(0), label='Exp')
-ax2.loglog(Telist, emisEUrd/(emisFUrd+emisGUrd), linestyle='--', color=cmap(1), label='AtomDB')
-ax2.fill_between(Telist, emisElo/(emisFup+emisGup), emisEup/(emisFlo+emisGlo), color=cmap(0), alpha=0.15) #error bars are using low-H/high-He or vice versa
-ax2.legend(loc=0)
+ax2.loglog(Telist, emisEUrd/(emisFUrd+emisGUrd), linestyle='--', color=cmap(10), label='AtomDB')
+ax2.fill_between(Telist, emisElo/(emisFup+emisGup), emisEup/(emisFlo+emisGlo), color=cmap(10), alpha=0.15) #error bars are using low-H/high-He or vice versa
+ax2.loglog(Telist, emisE/(emisF+emisG), color=cmap(9), label='Experiment')
+ax2.grid(axis='y')
 
-ax3.loglog(Telist, (emisE/(emisF+emisG))/(emisEUrd/(emisFUrd+emisGUrd)), label='H:He, Exp/AtomDB', color=cmap(0))
-ax3.fill_between((emisElo/(emisFlo+emisGlo))/(emisEUrd/(emisFUrd+emisGUrd)),(emisEup/(emisFup+emisGup))/(emisEUrd/(emisFUrd+emisGUrd)),color=cmap(0), alpha=0.15)
-ax3.legend(loc=0)
-
-ax1.set_xlim(2e6,4e8)
+ax1.legend()
+ax2.legend()
+ax1.set_xlim(1e6,2e7)
 ax1.set_ylim(1e-22, 1e-14)
-ax2.set_ylim(1e-4,1.1)
-ax3.set_ylim(1e-1, 1e1)
-ax1.set_ylabel('Emissivity (ph cm^3 s^-1)')
-ax2.set_ylabel('He/H-like')
+ax2.set_ylim(1.5e-1,15)
+ax1.set_ylabel('Emissivity (ph cm$^3$ s$^{-1}$)')
+ax2.set_ylabel(f'{element}{Z-2}+/{element}{Z-1}+ Emission Ratio')
  
 ax2.set_xlabel('Temperature (K)')
+plt.title(f'{element}{Z-2}+ and {element}{Z-1}+ Emission')
+
+import matplotlib.backends.backend_pdf
+pdf = matplotlib.backends.backend_pdf.PdfPages(f"{element}HHeRatio.pdf")
+#for fig in range(1, plt.gcf().number + 1):
+manager = plt.get_current_fig_manager()
+manager.window.showMaximized()
+plt.tight_layout()
+pdf.savefig( fig )
+pdf.close()
+if False:
+  # let's plot some graphs
+  cmap = plt.get_cmap("hsv", 12)
+  fig = plt.figure()
+  fig.show()
+  ax1 = fig.add_subplot(311)
+  ax2 = fig.add_subplot(312, sharex=ax1)
+  ax3 = fig.add_subplot(313, sharex=ax1)
+
+  ax1.loglog(Telist, emisEUrd, label='He-like AtomDB', linestyle='--', color=cmap(1))
+  ax1.loglog(Telist, emisE, label='He-like', color=cmap(0))
+  ax1.fill_between(Telist, emisElo, emisEup, color=cmap(0), alpha=0.15)
+
+  ax1.loglog(Telist, emisFUrd+emisGUrd, label='H-like AtomDB', linestyle='--', color=cmap(7))
+  ax1.loglog(Telist, emisF+emisG, label='H-like', color=cmap(6))
+  ax1.fill_between(Telist, emisFlo+emisGlo, emisFup+emisGup, color=cmap(6), alpha=0.15)
+  ax1.legend(loc=0)
+
+  ax2.loglog(Telist, emisE/(emisF+emisG), color=cmap(0), label='Exp')
+  ax2.loglog(Telist, emisEUrd/(emisFUrd+emisGUrd), linestyle='--', color=cmap(1), label='AtomDB')
+  ax2.fill_between(Telist, emisElo/(emisFup+emisGup), emisEup/(emisFlo+emisGlo), color=cmap(0), alpha=0.15) #error bars are using low-H/high-He or vice versa
+  ax2.legend(loc=0)
+
+  ax3.loglog(Telist, (emisE/(emisF+emisG))/(emisEUrd/(emisFUrd+emisGUrd)), label='H:He, Exp/AtomDB', color=cmap(0))
+  ax3.fill_between((emisElo/(emisFlo+emisGlo))/(emisEUrd/(emisFUrd+emisGUrd)),(emisEup/(emisFup+emisGup))/(emisEUrd/(emisFUrd+emisGUrd)),color=cmap(0), alpha=0.15)
+  ax3.legend(loc=0)
+
+  ax1.set_xlim(2e6,4e8)
+  ax1.set_ylim(1e-22, 1e-14)
+  ax2.set_ylim(1e-4,1.1)
+  ax3.set_ylim(1e-1, 1e1)
+  ax1.set_ylabel('Emissivity (ph cm^3 s^-1)')
+  ax2.set_ylabel('He/H-like')
+  
+  ax2.set_xlabel('Temperature (K)')
