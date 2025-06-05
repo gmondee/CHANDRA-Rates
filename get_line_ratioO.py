@@ -113,14 +113,13 @@ ax2.grid(axis='y')
 
 ax1.legend()
 ax2.legend()
-ax1.set_xlim(1e6,2e7)
-ax1.set_ylim(1e-22, 1e-14)
-ax2.set_ylim(1.5e-1,15)
+ax1.set_xlim(1.2e6,9e6)
+ax1.set_ylim(8e-18, 5.7e-15)
+ax2.set_ylim(.06, 17)
 ax1.set_ylabel('Emissivity (ph cm$^3$ s$^{-1}$)')
 ax2.set_ylabel(f'{element}{Z-2}+/{element}{Z-1}+ Emission Ratio')
  
 ax2.set_xlabel('Temperature (K)')
-plt.title(f'{element}{Z-2}+ and {element}{Z-1}+ Emission')
 
 import matplotlib.backends.backend_pdf
 pdf = matplotlib.backends.backend_pdf.PdfPages(f"{element}HHeRatio.pdf")

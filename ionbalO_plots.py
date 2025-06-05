@@ -65,31 +65,44 @@ cmap = plt.get_cmap("hsv", Z+1)
 # ax.set_ylabel('Ion Fraction')
 
 ### plot with errors
-fig = plt.figure()
-ax = fig.add_subplot(111)
+# fig = plt.figure()
+#ax = fig.add_subplot(211, height_ratios=[2, 1])
+fig, (ax, ax2) = plt.subplots(2,1, sharex=True, height_ratios=[2, 1])
 for z1 in range(1, Z+2):
   ionsymb = pyatomdb.atomic.Ztoelsymb(Z)+'$^{%i+}$'%(z1-1)
   ax.loglog(Telist, ionbalUrdam[:,z1-1], linestyle='--', linewidth=1, color=cmap(z1-1))
   ax.loglog(Telist, ionbalExp[:,z1-1], linestyle='-', linewidth=1, label=f'{ionsymb}', color=cmap(z1-1))
   ax.loglog(Telist, ionbalLower[:,z1-1], linestyle='-', linewidth=.5, color=cmap(z1-1))
   ax.loglog(Telist, ionbalUpper[:,z1-1], linestyle='-', linewidth=.5, color=cmap(z1-1))
-  plt.fill_between(Telist, ionbalLower[:,z1-1], ionbalUpper[:,z1-1], color=cmap(z1-1), alpha=0.15)
+  ax.fill_between(Telist, ionbalLower[:,z1-1], ionbalUpper[:,z1-1], color=cmap(z1-1), alpha=0.15)
   
 manager = plt.get_current_fig_manager()
 manager.window.showMaximized()
 ax.set_xlim(1e4, 3.4e7)
 ax.set_ylim(4e-3,1.3)
-CSLegend = ax.legend(loc='center right', bbox_to_anchor=(1,0.7), ncol=2, fontsize=12)
+CSLegend = ax.legend(loc='lower right', bbox_to_anchor=(1,.08), ncol=2, fontsize=10)
 ExpUrdLegend = [matplotlib.lines.Line2D([], [], color='black', linestyle=ls[0], label=ls[1]) for ls in [['-','Experiment'],['--','Urdampilleta']]]
-plt.gca().add_artist(CSLegend)
-ax.legend(handles=ExpUrdLegend, loc='center right', bbox_to_anchor=(1,0.83), ncol=2, fontsize=12)
-ax.set_xlabel('Temperature (K)')
+ax.add_artist(CSLegend)
+ax.legend(handles=ExpUrdLegend, loc='lower right', bbox_to_anchor=(1,0), ncol=2, fontsize=10)
 ax.set_ylabel('Ion Fraction')
+
+lowerLim=8e-3
+for charge in range(Z+1):
+  ionsymb = pyatomdb.atomic.Ztoelsymb(Z)+'$^{%i+}$'%(charge)
+  Slice = np.where(ionbalExp[:,charge]>lowerLim)
+  ax2.loglog(Telist[Slice],ionbalExp[:,charge][Slice]/ionbalUrdam[:,charge][Slice], color=cmap(charge), label=ionsymb)
+  ax2.fill_between(Telist[Slice], ionbalLower[:,charge][Slice]/ionbalUrdam[:,charge][Slice], ionbalUpper[:,charge][Slice]/ionbalUrdam[:,charge][Slice],
+                  color=cmap(charge), alpha=0.09)
+ax2.set_yscale('linear')
+ax2.set_xlim(1e4, 3.4e7)
+ax2.set_ylim(0,3)
+ax2.set_xlabel('Temperature (K)')
+ax2.set_ylabel('Experiment/Urdampilleta')
+ax2.grid(axis='y')
+fig.tight_layout()
 
 import matplotlib.backends.backend_pdf
 pdf = matplotlib.backends.backend_pdf.PdfPages(f"{element}Ionbal.pdf")
-#for fig in range(1, plt.gcf().number + 1):
-
 plt.tight_layout()
 pdf.savefig( fig )
 pdf.close()

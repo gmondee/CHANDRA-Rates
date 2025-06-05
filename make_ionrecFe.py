@@ -561,16 +561,16 @@ def ionrecAnalysis(Z=5, finalChargeState=3, elementSymbol='B', monteCarloLength=
     fig = plt.figure()
     fig.show()
     ax = fig.add_subplot(111)
-    ax.semilogy(Elist, ci, label='collisional ionization')
-    ax.semilogy(Elist, ea, label='excitation-autoionization')
-    ax.semilogy(Elist, ci+ea, label='Total cross section', marker='o')
     if fname:
-      ax.errorbar(Elist, csData, csUnc, label="experiment", marker='o', linestyle="None")
+      ax.errorbar(Elist, csData, csUnc, label="Experiment", marker='o', linestyle="None")
       #plt.xscale('log')
       plt.yscale('log')
+    ax.semilogy(Elist, ci+ea, label='Urdampilleta', marker='o')
+    ax.semilogy(Elist, ci, label='EII (Urdampilleta)')
+    ax.semilogy(Elist, ea, label='Excitation-autoionization (Urdampilleta)')
     ax.legend(loc=0)
-    plt.title(f"cross section of {elsymb} {z1-1}+ to {elsymb} {z1}+")
-    plt.ylabel('Cross section (cm-2)')
+    plt.title(f"EII cross section of {elsymb} {z1-1}+ to {elsymb} {z1}+")
+    plt.ylabel('Cross section (cm$^2$)')
     plt.xlabel('Electron energy (keV)')
     #plt.draw()
   #ipdb.set_trace()
@@ -670,7 +670,7 @@ def ionrecAnalysis(Z=5, finalChargeState=3, elementSymbol='B', monteCarloLength=
       return np.concatenate([residual,negativePenalty, derivPenalty],0)
     
     #result = crossSecModel.fit(csDataMonte[Elist>LowestEion], params=crossSecParams, electronEnergy=Elist[Elist>LowestEion])
-    resultMinimizer = lmfit.minimize(objective_custom, crossSecParams, args=(csDataMonte[Elist>=LowestEion], Elist[Elist>=LowestEion]), max_nfev=int(2*1e3))
+    resultMinimizer = lmfit.minimize(objective_custom, crossSecParams, args=(csDataMonte[Elist>=LowestEion], Elist[Elist>=LowestEion]), max_nfev=int(2*1e2))
     # ipdb.set_trace()
     numPoints = 100
     xs = np.logspace(np.log10(min(Elist)), np.log10(max(Elist)), num=numPoints)
@@ -780,22 +780,23 @@ def ionrecAnalysis(Z=5, finalChargeState=3, elementSymbol='B', monteCarloLength=
 
     cmap = plt.get_cmap("hsv", monteCarloLength)
     for j, expRates in enumerate(expRatesNonNeg):
-      ax1.plot(Tlist, expRates,label=f'MC {j}', linewidth=0.75, alpha=0.75, color=cmap(j))
-    ax1.plot(Tlist, totalUrdRates, '--', label='urdam')
-    ax1.errorbar(Tlist, avgExpRates, avgExpRatesUnc, label='Mean', linewidth=2, color='r')
+      ax1.plot(Tlist, expRates, linewidth=0.75, alpha=0.75, color=cmap(j))
+    ax1.plot(Tlist, totalUrdRates, '--', label='Urdampilleta')
+    ax1.errorbar(Tlist, avgExpRates, avgExpRatesUnc, label='Mean of Monte Carlo Simulation', linewidth=2, color='r')
     #ax1.fill_between(Tlist, avgExpRates-avgExpRatesUnc, avgExpRates+avgExpRatesUnc, color='r', alpha=0.15)
     ax1.set_yscale('log')
     ax1.set_xscale('log')
-    ax1.set_title(f'{len(expRatesNonNeg)} Ionization rates of {elementSymbol}{finalChargeState-1}+ to {elementSymbol}{finalChargeState}+ (excluded {len(totalExpRates)-len(expRatesNonNeg)})')
-    ax1.set_xlabel('Temperature (K)')
+    ax1.set_title(f'N={len(expRatesNonNeg)} Ionization rates of {elementSymbol}{finalChargeState-1}+ to {elementSymbol}{finalChargeState}+')
     ax1.set_ylabel('Rate (1/s)')
     ax1.set_ylim(1e-13,1e-7)
+    ax1.legend()
 
-    ax2.plot(Tlist, avgExpRates/totalUrdRates, label='Exp/Urd')
-    ax2.plot(Tlist, (avgExpRates+avgExpRatesUnc[1])/totalUrdRates, '--', color='g',label='Exp/Urd')
-    ax2.plot(Tlist, (avgExpRates-avgExpRatesUnc[0])/totalUrdRates, '--', color='g',label='Exp/Urd')
+    ax2.plot(Tlist, avgExpRates/totalUrdRates, label='Exp/Urd', color='black')
+    ax2.fill_between(Tlist, lowerExpConf/totalUrdRates, upperExpConf/totalUrdRates, color='black',label='Exp/Urd', alpha=0.15)
     ax2.set_xscale('log')
-    ax2.set_title('Experiment/Urdampilleta')
+    ax2.set_ylabel('Experiment/Urdampilleta')
+    ax2.set_xlabel('Temperature (K)')
+    ax2.grid(axis='y')
     #plt.legend()
     print(f'For {elementSymbol}{finalChargeState-1}+ to {elementSymbol}{finalChargeState}+:\n\tExcluded {len(totalExpRates)-len(expRatesNonNeg)} of {len(totalExpRates)} curves due to negative values.')
     #plt.savefig(f'{elementSymbol}{finalChargeState-1}+ to {elementSymbol}{finalChargeState}+.pdf')
@@ -820,10 +821,10 @@ def getIonrecArgsFromFile(element: str):
 if __name__ == '__main__':
   import matplotlib.pyplot as plt
   plt.ion()
-  if False:
-    ionrecAnalysis(Z=26, finalChargeState=1, elementSymbol='Fe', monteCarloLength=200, numCIModels=2, numEAModels=0, 
-                    lowTempPower=4, highTempPower=9, numTempSteps=300, makePlots=False, makePlotsRates=True, FixD=False, addZeroPt=False)
   if True:
+    ionrecAnalysis(Z=26, finalChargeState=6, elementSymbol='Fe', monteCarloLength=1, numCIModels=1, numEAModels=0, 
+                    lowTempPower=4, highTempPower=9, numTempSteps=300, makePlots=True, makePlotsRates=False, FixD=False, addZeroPt=False)
+  if False:
     element = 'Fe'
     ratesAndUncs = {}
     ionrecArgs = getIonrecArgsFromFile(element)
