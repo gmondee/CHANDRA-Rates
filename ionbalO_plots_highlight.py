@@ -9,7 +9,7 @@ plt.ion()
 plt.rcParams.update({'font.size': 16})
 # example to get recombination rates and ionizatino balance
 
-Z = 26
+Z = 8
 element = pyatomdb.atomic.Ztoelsymb(Z)
 
 bal_picklename = f'{element}_bal.pickle'
@@ -48,7 +48,7 @@ for iT in range(len(Telist)):
 
 
 # Plot some results
-cmap = plt.get_cmap("hsv", Z+1)
+
 
 ### without filled in errors
 # fig = plt.figure()
@@ -69,11 +69,12 @@ cmap = plt.get_cmap("hsv", Z+1)
 #ax = fig.add_subplot(211, height_ratios=[2, 1])
 
 chargesToHighlight=[5,6,7]
+cmap = plt.get_cmap("hsv", len(chargesToHighlight)+1)
 fig, (ax, ax2) = plt.subplots(2,1, sharex=True, height_ratios=[2, 1])
 for z1 in range(1, Z+2):
   ionsymb = pyatomdb.atomic.Ztoelsymb(Z)+'$^{%i+}$'%(z1-1)
   if z1-1 in chargesToHighlight:
-    chargeColor=cmap(z1-1)
+    chargeColor=cmap(int(np.where(z1-1==np.array(chargesToHighlight))[0]))
     chargeLabel=ionsymb
     chargeWidthMod = 0.5
     chargezorder = 99
@@ -100,10 +101,10 @@ leg.set_zorder(100)
 CSLegend.set_zorder(100)
 ax.set_ylabel('Ion Fraction')
 
-lowerLim=8e-3
+lowerLim=1e-2
 for charge in range(Z+1):
   if charge in chargesToHighlight:
-    chargeColor=cmap(charge)
+    chargeColor=cmap(int(np.where(charge==np.array(chargesToHighlight))[0]))
     chargeWidthMod = 0.5
     chargezorder = 99
   else:
@@ -116,7 +117,7 @@ for charge in range(Z+1):
   ax2.fill_between(Telist[Slice], ionbalLower[:,charge][Slice]/ionbalUrdam[:,charge][Slice], ionbalUpper[:,charge][Slice]/ionbalUrdam[:,charge][Slice],
                   color=chargeColor, alpha=0.09+chargeWidthMod/5, zorder=chargezorder)
 ax2.set_yscale('linear')
-ax2.set_xlim(1e4, 1e9)
+ax2.set_xlim(1e4, 3e7)
 ax2.set_ylim(0,3)
 ax2.set_xlabel('Temperature (K)')
 ax2.set_ylabel('Experiment/Urdampilleta')

@@ -658,11 +658,11 @@ def ionrecAnalysis(Z=5, finalChargeState=3, elementSymbol='B', monteCarloLength=
       negativePenalty = np.array([])
       derivPenalty = np.array([])
       for key, comp in paramsValuesDict.items():
-        negativePenalty = np.concatenate([negativePenalty,[abs(val *1000) if val < 0 else 0 for val in comp]],0)
+        negativePenalty = np.concatenate([negativePenalty,[abs(val *100000) if val < 0 else 0 for val in comp]],0)
         # derivPenalty = np.concatenate([derivPenalty,[(comp[i+1] - comp[i]) ** 2
         #                                              if i < len(comp) - 1 else 0
         #                                              for i in range(len(comp))]],0)
-        if ('ea' in key):
+        if ('ea' in key) or (Z==8 and finalChargeState==7):
           derivPenalty = np.concatenate([derivPenalty,[abs(comp[i+1] - 2 * comp[i] + comp[i-1])*1000 #does this penalize large ea curves rather than the curvature? exp changes but with a small step size...
                                                 if i > 0 and i < len(comp) - 1 and comp[i-1]!=0 else 0
                                                 for i in range(len(comp))]],0)
@@ -720,8 +720,6 @@ def ionrecAnalysis(Z=5, finalChargeState=3, elementSymbol='B', monteCarloLength=
 
 
     paramsDict[mcInd] = bv
-
-  return ElistOrig, xs, csData, csUnc, totalCS, monteData
   # ipdb.set_trace()
   # ipdb.pm()
   ### compare results to accepted rates
@@ -770,7 +768,8 @@ def ionrecAnalysis(Z=5, finalChargeState=3, elementSymbol='B', monteCarloLength=
   upperExpConf = np.percentile(expRatesNonNeg, 84, axis=0)
   lowerExpConf = np.percentile(expRatesNonNeg, 16, axis=0)
   avgExpRatesUnc = [abs(avgExpRates-lowerExpConf), abs(avgExpRates-upperExpConf)] #[lower, upper] uncertainties
-
+  ci, ea = get_ionrec_crosssec(Z, z1, elsymb, xs)
+  return ElistOrig,ci+ea, xs, csData, csUnc, totalCS, monteData, Tlist, expRatesNonNeg, [avgExpRates, avgExpRatesUnc[0], avgExpRatesUnc[1]], avgExpRatesUnc, totalUrdRates
   if makePlotsRates:
     fig, (ax1, ax2) = plt.subplots(2,1)
 
@@ -818,8 +817,12 @@ plt.ion()
 plt.rcParams.update({'font.size': 16})
 
 monteCarloLen = 200
-xs, xsFit, origCS, origUnc, expCS, monteData = ionrecAnalysis(Z=8, finalChargeState=6, elementSymbol='O', monteCarloLength=monteCarloLen, numCIModels=1, numEAModels=0, 
-                  lowTempPower=4, highTempPower=9, numTempSteps=300, makePlots=False, makePlotsRates=True, FixD=True, addZeroPt=False)
+Z=8
+elementSymbol='O'
+finalChargeState=6
+
+xs, urdamCS, xsFit, origCS, origUnc, expCS, monteData,Tlist, expRatesNonNeg, (avgExpRates, lowerExpConf, upperExpConf), avgExpRatesUnc, totalUrdRates = ionrecAnalysis(Z=Z, finalChargeState=finalChargeState, elementSymbol=elementSymbol, monteCarloLength=monteCarloLen, numCIModels=1, numEAModels=0, 
+                  lowTempPower=4, highTempPower=9, numTempSteps=300, makePlots=False, makePlotsRates=True, FixD=False, addZeroPt=False)
 
 fig, ax = plt.subplots(1,1)
 
@@ -830,7 +833,7 @@ cmap = plt.get_cmap("rainbow", int(len(monteData)*2.5))
 for i in range(len(monteData)):
   ax.semilogy(xsFit, expCS[i], color=cmap(i), linestyle='-', marker='none', linewidth=0.5)
   ax.semilogy(xs, monteData[i], color=cmap(i), linestyle='none', marker='o')
-
+ax.plot(xsFit, urdamCS, marker='none', linestyle='--', color='orange', linewidth=1.25, label='Urdampilleta')
 ax.legend(loc='lower right')
 manager = plt.get_current_fig_manager()
 manager.window.showMaximized()
@@ -847,3 +850,36 @@ plt.tight_layout()
 pdf.savefig( fig )
 pdf.close()
 
+fig, (ax1, ax2) = plt.subplots(2,1, sharex=True)
+cmap = plt.get_cmap("rainbow", int(len(monteData)*2.5))
+for j, expRates in enumerate(expRatesNonNeg):
+  ax1.plot(Tlist, expRates, linewidth=0.75, alpha=0.75, color=cmap(j))
+ax1.plot(Tlist, totalUrdRates, '--', color='orange', label='Urdampilleta')
+ax1.errorbar(Tlist, avgExpRates, avgExpRatesUnc, label='Mean of Monte Carlo Simulation', linewidth=2, color='r')
+ax1.fill_between([1.5e5, 4e6], [0,0], [1,1], color='yellow', alpha=0.15, label="Relevant T Range")
+#ax1.fill_between(Tlist, avgExpRates-avgExpRatesUnc, avgExpRates+avgExpRatesUnc, color='r', alpha=0.15)
+ax1.set_yscale('log')
+ax1.set_xscale('log')
+ax1.set_title(f'N={200} Ionization rates of {elementSymbol}{finalChargeState-1}+ to {elementSymbol}{finalChargeState}+')
+ax1.set_ylabel('Ionization Rate (s$^{-1}$)')
+ax1.set_ylim(1e-15,2e-9)
+ax1.set_xlim(1e5,1.1e7)
+ax1.legend()
+
+ax2.plot(Tlist, avgExpRates/totalUrdRates, label='Exp/Urd', color='black')
+ax2.fill_between(Tlist, (avgExpRates-lowerExpConf)/totalUrdRates, (upperExpConf+avgExpRates)/totalUrdRates, color='black',label='Exp/Urd', alpha=0.15)
+ax2.fill_between([1.5e5, 4e6], [0,0], [2,2], color='yellow', alpha=0.15, label="Relevant T Range")
+ax2.set_xscale('log')
+ax2.set_ylabel('Experiment/Urdampilleta')
+ax2.set_xlabel('Temperature (K)')
+ax2.set_ylim(.85,1.15)
+ax2.grid(axis='y')
+manager = plt.get_current_fig_manager()
+manager.window.showMaximized()
+fig.tight_layout()
+
+import matplotlib.backends.backend_pdf
+pdf = matplotlib.backends.backend_pdf.PdfPages(f"rates{elementSymbol}{finalChargeState}.pdf")
+plt.tight_layout()
+pdf.savefig( fig )
+pdf.close()

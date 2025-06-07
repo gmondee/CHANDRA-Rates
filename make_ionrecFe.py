@@ -778,7 +778,7 @@ def ionrecAnalysis(Z=5, finalChargeState=3, elementSymbol='B', monteCarloLength=
   if makePlotsRates:
     fig, (ax1, ax2) = plt.subplots(2,1, sharex=True)
 
-    cmap = plt.get_cmap("hsv", monteCarloLength)
+    cmap = plt.get_cmap("rainbow", int(len(monteCarloLength)*2.5))
     for j, expRates in enumerate(expRatesNonNeg):
       ax1.plot(Tlist, expRates, linewidth=0.75, alpha=0.75, color=cmap(j))
     ax1.plot(Tlist, totalUrdRates, '--', label='Urdampilleta')

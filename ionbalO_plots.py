@@ -94,7 +94,7 @@ for charge in range(Z+1):
   ax2.fill_between(Telist[Slice], ionbalLower[:,charge][Slice]/ionbalUrdam[:,charge][Slice], ionbalUpper[:,charge][Slice]/ionbalUrdam[:,charge][Slice],
                   color=cmap(charge), alpha=0.09)
 ax2.set_yscale('linear')
-ax2.set_xlim(1e4, 3.4e7)
+ax2.set_xlim(1e4, 3e7)
 ax2.set_ylim(0,3)
 ax2.set_xlabel('Temperature (K)')
 ax2.set_ylabel('Experiment/Urdampilleta')
