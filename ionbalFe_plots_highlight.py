@@ -68,7 +68,7 @@ cmap = plt.get_cmap("hsv", Z+1)
 # fig = plt.figure()
 #ax = fig.add_subplot(211, height_ratios=[2, 1])
 
-chargesToHighlight=[5,6,7]
+chargesToHighlight=[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,23,24,25,26]
 fig, (ax, ax2) = plt.subplots(2,1, sharex=True, height_ratios=[2, 1])
 for z1 in range(1, Z+2):
   ionsymb = pyatomdb.atomic.Ztoelsymb(Z)+'$^{%i+}$'%(z1-1)
