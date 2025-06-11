@@ -713,7 +713,7 @@ def ionrecAnalysis(Z=5, finalChargeState=3, elementSymbol='B', monteCarloLength=
         eadata = mewe(xs, **dict(zip(['eion','A','B','C','D','E'], eaparams[1:])))
         plt.plot(xs, eadata, '-.', label=f'eaUrd{i}')
       
-      plt.legend()
+      plt.legend(ncols=2)
       plt.yscale('log')
       plt.xscale('log')
 
@@ -778,7 +778,7 @@ def ionrecAnalysis(Z=5, finalChargeState=3, elementSymbol='B', monteCarloLength=
   if makePlotsRates:
     fig, (ax1, ax2) = plt.subplots(2,1, sharex=True)
 
-    cmap = plt.get_cmap("rainbow", int(len(monteCarloLength)*2.5))
+    cmap = plt.get_cmap("rainbow", int(monteCarloLength)*2.5)
     for j, expRates in enumerate(expRatesNonNeg):
       ax1.plot(Tlist, expRates, linewidth=0.75, alpha=0.75, color=cmap(j))
     ax1.plot(Tlist, totalUrdRates, '--', label='Urdampilleta')
@@ -821,10 +821,10 @@ def getIonrecArgsFromFile(element: str):
 if __name__ == '__main__':
   import matplotlib.pyplot as plt
   plt.ion()
-  if True:
-    ionrecAnalysis(Z=26, finalChargeState=6, elementSymbol='Fe', monteCarloLength=1, numCIModels=1, numEAModels=0, 
-                    lowTempPower=4, highTempPower=9, numTempSteps=300, makePlots=True, makePlotsRates=False, FixD=False, addZeroPt=False)
   if False:
+    ionrecAnalysis(Z=26, finalChargeState=9, elementSymbol='Fe', monteCarloLength=200, numCIModels=1, numEAModels=1, 
+                    lowTempPower=4, highTempPower=9, numTempSteps=300, makePlots=False, makePlotsRates=True, FixD=True, addZeroPt=False)
+  if True:
     element = 'Fe'
     ratesAndUncs = {}
     ionrecArgs = getIonrecArgsFromFile(element)
