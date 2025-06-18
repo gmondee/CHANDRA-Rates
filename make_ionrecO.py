@@ -508,7 +508,7 @@ def ionrecAnalysis(Z=5, finalChargeState=3, elementSymbol='B', monteCarloLength=
 
   if fname:
     #load energies, data
-    wb = openpyxl.load_workbook(fname)
+    wb = openpyxl.load_workbook(fname, data_only=True)
     ws = wb.active
     ws_contents=list(ws.iter_cols(values_only=True))
     for col in ws_contents:
